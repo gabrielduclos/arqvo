@@ -1,5 +1,7 @@
 # Arqvo UI Kit — permanent visual reference
 
+**Current canonical snapshot (interactive KPIs and search):** [Open validated reference](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-interactive-overview-search). Older snapshots are historical; deployed code remains in `apps/web/src`.
+
 **Historical reference:** Original Arqvo prototype commit [6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7](https://github.com/gabrielduclos/arqvo/tree/6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7). The exact original prototype source is frozen in [App.tsx](../design/reference/2026-11-19-original-prototype/App.tsx) and [style.css](../design/reference/2026-11-19-original-prototype/style.css). **These files are reference only; never import demo data into production.**
 
 ## Style tokens (exact)

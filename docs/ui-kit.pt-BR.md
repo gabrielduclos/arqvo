@@ -1,5 +1,7 @@
 # Arqvo UI Kit — referência visual permanente
 
+**Snapshot canônico atual (indicadores e busca):** [Ver versão validada](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-interactive-overview-search). Os arquivos antigos são referências históricas; a aplicação ativa está em `apps/web/src`.
+
 **Referência histórica:** protótipo original no commit [6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7](https://github.com/gabrielduclos/arqvo/tree/6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7). Código congelado em [App.tsx](../design/reference/2026-11-19-original-prototype/App.tsx) e [style.css](../design/reference/2026-11-19-original-prototype/style.css). **Esses arquivos são somente referência: nunca reintroduzir documentos fictícios no aplicativo.**
 
 ## Cores e tipografia originais
