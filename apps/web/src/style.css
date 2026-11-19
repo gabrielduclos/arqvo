@@ -33,3 +33,6 @@ body { min-width: 320px; min-height: 100dvh; overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Respect device cutouts in standalone/PWA mode without shrinking the logo row. */
+.arqvo-safe-top { padding-top: env(safe-area-inset-top, 0px); }

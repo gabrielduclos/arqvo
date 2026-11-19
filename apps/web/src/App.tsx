@@ -135,7 +135,7 @@ export default function App() {
       </div>
     </motion.div> : !user ?
     <motion.div key="login" initial={enter} animate={{ opacity: 1, y: 0 }} exit={leave} className="min-h-screen bg-canvas">
-      <header className="border-b border-slate-200/70 bg-white">
+      <header className="arqvo-safe-top border-b border-slate-200/70 bg-white">
         <div className="mx-auto flex h-[72px] max-w-[1520px] items-center justify-between gap-4 px-5 sm:px-8">
           {logo}
           <div className="flex items-center gap-4">{languageButton}
@@ -172,7 +172,7 @@ export default function App() {
     </motion.div> :
     <motion.div key="app" initial={reducedMotion ? {} : { opacity: 0 }} animate={{ opacity: 1 }}
       exit={{ opacity: 0 }} className="min-h-[100dvh] bg-canvas">
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+      <header className="arqvo-safe-top sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-2 px-4 sm:px-6 md:h-[72px] lg:px-8">
           <button onClick={() => chooseSection('overview')} aria-label="Arqvo home" className="shrink-0 rounded-xl">
             {logo}
