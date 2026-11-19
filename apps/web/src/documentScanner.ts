@@ -127,3 +127,12 @@ export async function readScan(
     await worker.terminate();
   }
 }
+
+
+/** Export the visually corrected page as a compressed JPEG for a generated PDF. */
+export async function makeScanPage(file: File, options: ScanOptions): Promise<Blob> {
+  const canvas = await renderImage(file, options, 1800);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('scan_export_failed')), 'image/jpeg', 0.76);
+  });
+}
