@@ -127,6 +127,41 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       });
       assert.equal(searched.statusCode, 200);
       assert.ok(searched.json().documents.some(d => d.id === id));
+
+      // Advanced filters are executed in Neon and always scoped by session.
+      async function filtered(query) {
+        return app.inject({ method: 'GET', url: '/api/documents?' + query, headers: { cookie } });
+      }
+      const complete = await filtered(
+        'q=farm%C3%A1cia&merchant=central&dateStart=2026-11-01&dateEnd=2026-11-30' +
+        '&amountMin=8000&amountMax=9000&type=pdf&analysis=ready&sort=amount_high'
+      );
+      assert.equal(complete.statusCode, 200, complete.body);
+      assert.deepEqual(complete.json().documents.map(doc => doc.id), [id]);
+      assert.equal(complete.json().documents[0].analysisState, 'ready');
+
+      const uploadedToday = new Date().toISOString().slice(0, 10);
+      const uploadDates = await filtered('uploadStart=' + uploadedToday + '&uploadEnd=' + uploadedToday + '&sort=oldest');
+      assert.equal(uploadDates.statusCode, 200, uploadDates.body);
+      assert.ok(uploadDates.json().documents.some(doc => doc.id === id));
+
+      for (const query of [
+        'type=image', 'analysis=pending', 'dateStart=2026-12-01',
+        'amountMin=9000', 'merchant=inexistente', 'q=inexistente'
+      ]) {
+        const empty = await filtered(query);
+        assert.equal(empty.statusCode, 200, empty.body);
+        assert.ok(!empty.json().documents.some(doc => doc.id === id), query);
+      }
+      for (const invalid of [
+        'sort=unknown', 'dateStart=2026-02-31',
+        'dateStart=2026-11-30&dateEnd=2026-11-01',
+        'amountMin=15000&amountMax=9000', 'type=exe', 'analysis=unknown',
+        'amountMin=1.23'
+      ]) {
+        const response = await filtered(invalid);
+        assert.equal(response.statusCode, 400, invalid + ': ' + response.body);
+      }
       // Regression: text-only OCR must never be labelled "analyzed" when
       // the model failed to recognize merchant, date and total.
       const textOnly = await app.inject({
@@ -144,6 +179,10 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       assert.ok(item);
       assert.equal(item.status, 'uploaded');
       assert.equal(item.hasExtractedText, true);
+      assert.equal(item.analysisState, 'text_only');
+      const textOnlySearch = await filtered('analysis=text_only');
+      assert.equal(textOnlySearch.statusCode, 200);
+      assert.ok(textOnlySearch.json().documents.some(doc => doc.id === id));
       const partial = await app.inject({
         method: 'PATCH', url: '/api/documents/' + id + '/analysis',
         headers: { ...headers, cookie },
@@ -151,6 +190,9 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       });
       assert.equal(partial.statusCode, 200, partial.body);
       assert.equal(partial.json().document.status, 'uploaded');
+      const partialSearch = await filtered('analysis=partial&merchant=central');
+      assert.equal(partialSearch.statusCode, 200, partialSearch.body);
+      assert.ok(partialSearch.json().documents.some(doc => doc.id === id));
       // The application no longer enforces per-day AI quotas.
       // A non-existent legacy quota endpoint must not be relied on.
       const retiredQuota = await app.inject({
