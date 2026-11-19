@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles } from 'lucide-react';
+import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
 import AuthPanel, { type AuthStatus, type Profile } from './AuthPanel';
 import VaultPanel from './VaultPanel';
 import OverviewPanel from './OverviewPanel';
@@ -40,9 +40,11 @@ const copy = {
 export default function App() {
   const [language, setLanguage] = useState<Language>('pt');
   const [section, setSection] = useState<Section>('overview');
-  const [mobileMenu, setMobileMenu] = useState(false);
   const reducedMotion = useReducedMotion();
-  const chooseSection = (next: Section) => { setSection(next); setMobileMenu(false); };
+  const chooseSection = (next: Section) => {
+    setSection(next);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [user, setUser] = useState<Profile | null>(null);
   const [checking, setChecking] = useState(true);
@@ -106,14 +108,6 @@ export default function App() {
   </button>;
 
 
-  const nav = (key: Section, label: string, Icon: typeof LayoutDashboard) => (
-    <button onClick={() => chooseSection(key)}
-      aria-current={section === key ? 'page' : undefined}
-      className={'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ' +
-        (section === key ? 'bg-brand-soft text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
-      <Icon size={18} strokeWidth={1.9}/>{label}
-    </button>
-  );
   const enter = reducedMotion ? {} : { opacity: 0, y: 12 };
   const leave = reducedMotion ? {} : { opacity: 0, y: -8 };
 
@@ -177,61 +171,73 @@ export default function App() {
       </main>
     </motion.div> :
     <motion.div key="app" initial={reducedMotion ? {} : { opacity: 0 }} animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }} className="min-h-screen bg-canvas">
+      exit={{ opacity: 0 }} className="min-h-[100dvh] bg-canvas">
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex h-[72px] max-w-[1520px] items-center justify-between gap-4 px-5 sm:px-8">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenu(v => !v)} aria-label={language === 'pt' ? 'Abrir menu' : 'Open menu'}
-              className="rounded-lg p-1 text-slate-600 md:hidden"><Menu size={23}/></button>
-            <button onClick={() => chooseSection('overview')} aria-label="Arqvo home">
-              {logo}
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden max-w-52 truncate text-xs font-medium text-slate-500 lg:inline">{user.name}</span>
-            <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer"
-              className="hidden items-center gap-1.5 text-sm text-slate-500 hover:text-brand sm:inline-flex">Open source<ArrowRight size={15}/></a>
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-2 px-4 sm:px-6 md:h-[72px] lg:px-8">
+          <button onClick={() => chooseSection('overview')} aria-label="Arqvo home" className="shrink-0 rounded-xl">
+            {logo}
+          </button>
+          <nav className="hidden items-center gap-1 rounded-2xl bg-slate-100 p-1 md:flex"
+            aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}>
+            {([
+              ['overview', t.overview, LayoutDashboard],
+              ['documents', t.documents, FileText]
+            ] as const).map(([key, label, Icon]) => (
+              <button key={key} type="button" onClick={() => chooseSection(key)}
+                aria-current={section === key ? 'page' : undefined}
+                className={'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ' +
+                  (section === key ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-ink')}>
+                <Icon size={17} strokeWidth={1.9}/>{label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <span className="hidden max-w-32 truncate text-xs font-medium text-slate-500 xl:inline">{user.name}</span>
             {languageButton}
             <button onClick={signOut} disabled={signingOut} aria-label={t.logout} title={t.logout}
-              className="rounded-xl border border-slate-200 p-2.5 text-slate-500 transition hover:text-red-500 disabled:opacity-50"><LogOut size={18}/></button>
+              className="flex size-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-red-200 hover:text-red-500 disabled:opacity-50">
+              <LogOut size={18}/>
+            </button>
           </div>
         </div>
       </header>
-      <div className="mx-auto flex max-w-[1520px]">
-        <aside className={(mobileMenu ? 'fixed inset-x-0 top-[72px] z-20 block shadow-lg' : 'hidden') +
-          ' w-full border-b border-slate-200 bg-white px-5 py-8 md:sticky md:top-[72px] md:block md:h-[calc(100vh-72px)] md:w-[252px] md:shrink-0 md:border-b-0 md:border-r md:px-6 md:shadow-none'}>
-          <p className="mb-5 px-4 text-[11px] font-bold uppercase tracking-[.16em] text-slate-400">{language === 'pt' ? 'Seu espaço' : 'Your space'}</p>
-          <nav className="space-y-2" aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}>
-            {nav('overview', t.overview, LayoutDashboard)}
-            {nav('documents', t.documents, FileText)}
-          </nav>
-          <div className="mt-10 rounded-2xl bg-indigo-50 p-4">
-            <span className="mb-3 flex size-9 items-center justify-center rounded-xl bg-white text-brand"><ShieldCheck size={19}/></span>
-            <p className="text-sm font-bold">{language === 'pt' ? 'Documentos privados' : 'Private documents'}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">{language === 'pt'
-              ? 'Os documentos são acessados apenas com sua conta. Confira os dados extraídos pela IA no original.'
-              : 'Documents are accessed through your account only. Check AI-extracted data against the original.'}</p>
-          </div>
-          <p className="mt-6 px-2 text-[11px] leading-relaxed text-slate-400">{user.email}</p>
-        </aside>
-        <main className="min-w-0 flex-1 px-5 pb-14 pt-8 sm:px-8 lg:px-12 lg:pt-12">
-          {connectionError && <div role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t.unavailable}</div>}
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={section} initial={reducedMotion ? {} : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? {} : { opacity: 0, y: -8 }}
-              transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
-              {section === 'overview'
-                ? <OverviewPanel language={language} onOpenDocuments={() => chooseSection('documents')}/>
-                : <VaultPanel language={language} email={user.email}/>}
-            </motion.div>
-          </AnimatePresence>
-          <footer className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400">
-            <span>© 2026 Arqvo · MIT · {t.beta}</span>
-            <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-brand">{t.powered}<ArrowRight size={13}/></a>
-          </footer>
-        </main>
-      </div>
+      <main id="main-content" className="mx-auto w-full max-w-[1200px] px-4 pb-32 pt-6 sm:px-6 sm:pt-8 md:px-8 md:pb-14 lg:pt-10">
+        {connectionError && <div role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t.unavailable}</div>}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={section} initial={reducedMotion ? {} : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? {} : { opacity: 0, y: -8 }}
+            transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
+            {section === 'overview'
+              ? <OverviewPanel language={language} onOpenDocuments={() => chooseSection('documents')}/>
+              : <VaultPanel language={language} email={user.email}/>}
+          </motion.div>
+        </AnimatePresence>
+        <footer className="mt-12 hidden flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400 md:flex">
+          <span>© 2026 Arqvo · MIT · {t.beta}</span>
+          <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-brand">{t.powered}<ArrowRight size={13}/></a>
+        </footer>
+      </main>
+      <nav aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 shadow-[0_-8px_32px_rgba(25,27,42,0.06)] backdrop-blur-xl md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="mx-auto grid h-[68px] max-w-lg grid-cols-2 gap-2 px-4 pt-1">
+          {([
+            ['overview', t.overview, LayoutDashboard],
+            ['documents', t.documents, FileText]
+          ] as const).map(([key, label, Icon]) => (
+            <button key={key} type="button" onClick={() => chooseSection(key)}
+              aria-current={section === key ? 'page' : undefined}
+              className={'relative flex min-h-[56px] flex-col items-center justify-center gap-1.5 rounded-2xl text-[11px] font-semibold transition-colors ' +
+                (section === key ? 'text-brand' : 'text-slate-500 active:bg-slate-100')}>
+              {section === key && <motion.span layoutId="mobile-nav-active" transition={{ type: 'spring', bounce: .18, duration: .32 }}
+                className="absolute inset-x-3 inset-y-1 rounded-2xl bg-brand-soft" aria-hidden="true"/>}
+              <Icon size={21} strokeWidth={section === key ? 2.3 : 1.9} className="relative z-10"/>
+              <span className="relative z-10">{label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </motion.div>}
   </AnimatePresence>;
 }
