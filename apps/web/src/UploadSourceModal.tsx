@@ -1,25 +1,27 @@
 import { useEffect, useRef } from 'react';
-import { Camera, FolderOpen, Images, X } from 'lucide-react';
+import { Camera, FolderOpen, Images, ScanLine, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 
 type Language = 'pt' | 'en';
-export type UploadSource = 'camera' | 'gallery' | 'file';
+export type UploadSource = 'camera' | 'gallery' | 'file' | 'scanner';
 
 const copy = {
   pt: {
     heading: 'Adicionar documento',
     description: 'De onde deseja selecionar o documento?',
+    scanner: 'Scanner · Criar PDF', scannerDetail: 'Digitalizar várias páginas em um único documento',
     camera: 'Câmera', cameraDetail: 'Fotografar um documento agora',
-    gallery: 'Galeria', galleryDetail: 'Selecionar uma foto do dispositivo',
-    file: 'Arquivo', fileDetail: 'Selecionar PDF ou imagem dos arquivos',
+    gallery: 'Galeria', galleryDetail: 'Selecionar várias imagens para processamento em fila',
+    file: 'Arquivo', fileDetail: 'Selecionar PDFs ou imagens dos arquivos',
     close: 'Fechar'
   },
   en: {
     heading: 'Add a document',
     description: 'Where would you like to select it from?',
+    scanner: 'Scanner · Create PDF', scannerDetail: 'Scan multiple pages into a single document',
     camera: 'Camera', cameraDetail: 'Take a photo of the document',
-    gallery: 'Photo library', galleryDetail: 'Choose a photo from your device',
-    file: 'Files', fileDetail: 'Choose a PDF or image from your files',
+    gallery: 'Photo library', galleryDetail: 'Select multiple images for queued processing',
+    file: 'Files', fileDetail: 'Choose PDFs or images from your files',
     close: 'Close'
   }
 };
@@ -67,6 +69,7 @@ export default function UploadSourceModal({
       </div>
       <div className="space-y-2.5">
         {([
+          { key: 'scanner', title: t.scanner, subtitle: t.scannerDetail, Icon: ScanLine },
           { key: 'camera', title: t.camera, subtitle: t.cameraDetail, Icon: Camera },
           { key: 'gallery', title: t.gallery, subtitle: t.galleryDetail, Icon: Images },
           { key: 'file', title: t.file, subtitle: t.fileDetail, Icon: FolderOpen }
