@@ -1,38 +1,39 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
+import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LogOut, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import AuthPanel, { type AuthStatus, type Profile } from './AuthPanel';
 import VaultPanel from './VaultPanel';
 import OverviewPanel from './OverviewPanel';
+import ProfilePanel from './ProfilePanel';
 
 type Language = 'pt' | 'en';
-type Section = 'overview' | 'documents';
+type Section = 'overview' | 'documents' | 'profile';
 type DocumentView = 'all' | 'month' | 'identified';
 
 const copy = {
   pt: {
     loading: 'Preparando seu espaço...', retry: 'Tentar novamente',
     unavailable: 'Não foi possível conectar à autenticação. Tente novamente.',
-    overview: 'Visão geral', documents: 'Documentos', logout: 'Sair', privacy: 'Privacidade',
+    overview: 'Visão geral', documents: 'Documentos', profile: 'Perfil', logout: 'Sair', privacy: 'Privacidade',
     heroTag: 'Seus documentos, organizados com praticidade',
     hero: 'Seus documentos, sempre à mão.',
     subtitle: 'Guarde notas fiscais, comprovantes e recibos. Encontre o que precisa sem procurar em pastas intermináveis.',
     step1: 'Documentos organizados', detail1: 'Guarde e consulte seus arquivos em um só lugar.',
     step2: 'Extração automática', detail2: 'Após o upload, a IA tenta identificar estabelecimento, data e valor para facilitar a organização.',
-    step3: 'Pesquisa inteligente', detail3: 'Pesquise por texto ou descreva o documento que está procurando.',
+    step3: 'Busca detalhada', detail3: 'Encontre os documentos por texto, estabelecimento, categoria, data ou valor.',
     beta: 'Versão beta — mantenha uma cópia independente dos documentos importantes.',
     powered: 'Open source · Cloudflare · Render · Neon'
   },
   en: {
     loading: 'Preparing your workspace...', retry: 'Try again',
     unavailable: 'Unable to reach authentication. Please try again.',
-    overview: 'Overview', documents: 'Documents', logout: 'Sign out', privacy: 'Privacy',
+    overview: 'Overview', documents: 'Documents', profile: 'Profile', logout: 'Sign out', privacy: 'Privacy',
     heroTag: 'A simpler way to organize documents',
     hero: 'Every document, right where you need it.',
     subtitle: 'Keep receipts, invoices and payment records together. Find what matters without digging through folders.',
     step1: 'Organized documents', detail1: 'Store and access your documents in one place.',
     step2: 'Automatic extraction', detail2: 'After uploading, AI looks for the merchant, date and amount to make organization easier.',
-    step3: 'Intelligent search', detail3: 'Search by keyword or describe the document you are looking for.',
+    step3: 'Detailed search', detail3: 'Find documents by keyword, merchant, purchase category, date or amount.',
     beta: 'Beta release — keep an independent backup of important files.',
     powered: 'Open source · Cloudflare · Render · Neon'
   }
@@ -184,7 +185,8 @@ export default function App() {
             aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}>
             {([
               ['overview', t.overview, LayoutDashboard],
-              ['documents', t.documents, FileText]
+              ['documents', t.documents, FileText],
+              ['profile', t.profile, UserRound]
             ] as const).map(([key, label, Icon]) => (
               <button key={key} type="button" onClick={() => chooseSection(key)}
                 aria-current={section === key ? 'page' : undefined}
@@ -212,7 +214,9 @@ export default function App() {
             transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
             {section === 'overview'
               ? <OverviewPanel language={language} onOpenDocuments={(view = 'all') => chooseSection('documents', view)}/>
-              : <VaultPanel language={language} email={user.email} initialView={documentView}/>}
+              : section === 'documents'
+                ? <VaultPanel language={language} email={user.email} initialView={documentView}/>
+                : <ProfilePanel language={language} user={user}/>}
           </motion.div>
         </AnimatePresence>
         <footer className="mt-12 hidden flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400 md:flex">
@@ -224,10 +228,11 @@ export default function App() {
       <nav aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 shadow-[0_-8px_32px_rgba(25,27,42,0.06)] backdrop-blur-xl md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div className="mx-auto grid h-[68px] max-w-lg grid-cols-2 gap-2 px-4 pt-1">
+        <div className="mx-auto grid h-[68px] max-w-lg grid-cols-3 gap-1 px-3 pt-1">
           {([
             ['overview', t.overview, LayoutDashboard],
-            ['documents', t.documents, FileText]
+            ['documents', t.documents, FileText],
+              ['profile', t.profile, UserRound]
           ] as const).map(([key, label, Icon]) => (
             <button key={key} type="button" onClick={() => chooseSection(key)}
               aria-current={section === key ? 'page' : undefined}
