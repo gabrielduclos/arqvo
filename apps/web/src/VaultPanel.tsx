@@ -50,7 +50,7 @@ type Result = { documents?: Document[]; document?: Document; error?: string; aiU
 const words = {
   pt: {
     title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos.',
-    upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
+    upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 20 MB · máximo de 100 arquivos',
     uploadInfo: 'Informações do envio', uploadInfoHint: 'Formatos, limites e digitalização local',
     processing: 'Enviando e digitalizando…', analyzeAfter: 'Scanner e extração automática', aiConsent: 'Fotos da câmera e imagens carregadas são digitalizadas com OCR no próprio dispositivo. A IA é utilizada apenas quando faltar informação ou para documentos sem OCR local, como PDFs. O arquivo original permanece preservado.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
@@ -62,7 +62,7 @@ const words = {
     error: 'Não foi possível concluir a operação. Tente novamente.',
     unauthorized: 'Sessão inválida ou e-mail não confirmado. Faça login novamente.',
     aiLimit: 'A IA está temporariamente indisponível. O arquivo continua salvo.',
-    large: 'Arquivo muito grande. O limite é 8 MB.', type: 'Formato não aceito. Envie PDF, JPG, PNG ou WebP.',
+    large: 'Arquivo muito grande. O limite é 20 MB.', type: 'Formato não aceito. Envie PDF, JPG, PNG ou WebP.',
     saved: 'Arquivo salvo. Analisando o texto reconhecido…', localSaved: 'Digitalização local concluída. Confira os dados reconhecidos.', extracted: 'Dados identificados. Confira as informações no documento original.',
     note: 'Valores extraídos por IA são sugestões e devem ser conferidos.', noResults: 'Nenhum documento encontrado.',
     merchant: 'Estabelecimento', category: 'Categoria', subcategory: 'Subcategoria', amount: 'Valor', date: 'Data', format: 'Formato',
@@ -78,7 +78,7 @@ const words = {
   },
   en: {
     title: 'Documents', intro: 'Upload, search, preview and download your documents.',
-    upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
+    upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 20 MB · maximum 100 files',
     uploadInfo: 'Upload information', uploadInfoHint: 'Formats, limits and local scanning',
     processing: 'Uploading and scanning…', analyzeAfter: 'Scan and automatic extraction', aiConsent: 'Camera photos and uploaded images are scanned with on-device OCR. AI is used only if more details are needed, or for files without local OCR such as PDFs. Your original file remains preserved.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
@@ -90,7 +90,7 @@ const words = {
     error: 'Unable to complete the operation. Please retry.',
     unauthorized: 'Invalid session or unverified email. Sign in again.',
     aiLimit: 'AI is temporarily unavailable. Your file remains saved.',
-    large: 'File is too large. Maximum is 8 MB.', type: 'Unsupported file. Choose PDF, JPG, PNG or WebP.',
+    large: 'File is too large. Maximum is 20 MB.', type: 'Unsupported file. Choose PDF, JPG, PNG or WebP.',
     saved: 'File saved. Processing recognized text…', localSaved: 'Local scan completed. Review the recognized details.', extracted: 'Details identified. Check the information against the original.',
     note: 'AI-extracted values are suggestions that must be checked.', noResults: 'No documents found.',
     merchant: 'Merchant', category: 'Category', subcategory: 'Subcategory', amount: 'Amount', date: 'Date', format: 'Format',
@@ -105,7 +105,7 @@ const words = {
     betaWarning: 'Beta version. Avoid highly sensitive documents until the security review.'
   }
 };
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 
 async function parse(response: Response): Promise<Result> {
