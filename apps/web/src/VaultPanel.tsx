@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowDownToLine, ArrowRight, CheckCircle2,
   FileImage, FilePlus2, FileText, FolderOpen, LoaderCircle,
@@ -28,7 +29,7 @@ const words = {
     processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar automaticamente estabelecimento, data e valor. O arquivo original será preservado; confira os dados extraídos.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
-    find: 'Buscar', all: 'Todos', reset: 'Limpar busca', aiQuestion: 'Pergunte à IA sobre seus documentos',
+    find: 'Buscar', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', aiQuestion: 'Pergunte à IA sobre seus documentos',
     aiPlaceholder: 'Ex.: notas da farmácia acima de 100 reais', askAI: 'Pesquisar com IA',
     searchAIInfo: 'A IA interpreta sua pergunta, mas os resultados vêm apenas dos seus documentos. A pergunta é enviada à Cloudflare AI.',
     searching: 'Pesquisando…', scanned: 'Dados identificados', pending: 'Aguardando análise', partial: 'Dados parciais', textOnly: 'Texto extraído, sem dados identificados', extracting: 'Processando com IA…', noFields: 'O texto foi extraído, mas a IA não conseguiu identificar estabelecimento, data ou valor. Você pode tentar novamente.', partialFields: 'Extração parcial: confira e complete os dados pelo documento original.',
@@ -58,7 +59,7 @@ const words = {
     processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI automatically attempts to recognize the merchant, date and amount. Your original file is preserved; verify the extracted information.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
-    find: 'Search', all: 'All', reset: 'Clear search', aiQuestion: 'Ask AI about your documents',
+    find: 'Search', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', aiQuestion: 'Ask AI about your documents',
     aiPlaceholder: 'e.g., pharmacy invoices over R$ 100', askAI: 'AI search',
     searchAIInfo: 'AI interprets your question, but matches come only from your documents. Your question is sent to Cloudflare AI.',
     searching: 'Searching…', scanned: 'Data identified', pending: 'Waiting for analysis', partial: 'Partial data', textOnly: 'Text extracted, details not identified', extracting: 'Analyzing with AI…', noFields: 'Text was extracted, but the AI could not identify a merchant, date or amount. You can try again.', partialFields: 'Partial extraction: check the original for missing details.',
@@ -95,6 +96,8 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const t = words[language];
   const fileRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Document[]>([]);
+  const [fileKind, setFileKind] = useState<'all' | 'pdf' | 'image'>('all');
+  const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Document | null>(null);
@@ -117,6 +120,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
       style: 'currency', currency: 'BRL'
     }).format(Number(cents) / 100);
   const size = (value: number | string) => (Number(value) / 1024 / 1024).toFixed(2) + ' MB';
+  const listedDocs = docs.filter(doc => fileKind === 'all' || (fileKind === 'pdf' ? doc.mimeType === 'application/pdf' : doc.mimeType.startsWith('image/')));
   const fileLink = (id: string, download = false) => '/api/documents/' + encodeURIComponent(id) + '/file' + (download ? '?download=1' : '');
 
   const problem = (code?: string) => {
@@ -280,6 +284,12 @@ export default function VaultPanel({ language, email }: { language: Language; em
             className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand"/>
             <button type="submit" className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
           </div>
+          <div className="mt-5 flex flex-wrap gap-2" aria-label={language === 'pt' ? 'Tipo de documento' : 'Document type'}>
+            {(['all', 'pdf', 'image'] as const).map(kind => <button key={kind} type="button" onClick={() => setFileKind(kind)}
+              className={'rounded-full border px-4 py-2 text-xs font-semibold transition ' + (fileKind === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
+              {kind === 'all' ? t.all : kind === 'pdf' ? t.pdf : t.images}
+            </button>)}
+          </div>
         </form>
         <form onSubmit={searchWithAI} className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5">
           <div className="flex items-center gap-2"><Sparkles className="text-brand" size={20}/><h2 className="text-sm font-semibold">{t.aiQuestion}</h2></div>
@@ -296,14 +306,14 @@ export default function VaultPanel({ language, email }: { language: Language; em
 
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">{t.docs}</h2><p className="text-xs text-slate-500">{docs.length} {t.documentsCount}</p></div>
+          <div><h2 className="text-lg font-semibold">{t.docs}</h2><p className="text-xs text-slate-500">{listedDocs.length} {t.documentsCount}</p></div>
           {mode !== 'all' && <button className="inline-flex items-center gap-1 text-xs font-semibold text-brand" onClick={() => {setSearch('');setAiQuestion('');setMode('all');void refresh();}}>{t.reset}<X size={14}/></button>}
         </div>
         {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center"><LoaderCircle size={26} className="mx-auto animate-spin text-brand"/></div>
-          : docs.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
+          : listedDocs.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
             <FolderOpen size={32} className="mx-auto text-indigo-300"/><h3 className="mt-4 font-semibold">{mode === 'all' ? t.empty : t.noResults}</h3><p className="mt-1 text-sm text-slate-500">{mode === 'all' ? t.emptySub : ''}</p></div>
             : <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              {docs.map((doc, index) => (
+              {listedDocs.map((doc, index) => (
                 <div key={doc.id} className={'flex flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap sm:px-5 ' + (index ? 'border-t border-slate-100' : '')}>
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-brand">{doc.mimeType === 'application/pdf' ? <FileText size={21}/> : <FileImage size={21}/>}</span>
                   <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 text-left">
@@ -311,7 +321,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
                     <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
                     <span className={'mt-1 inline-block text-[11px] font-medium ' + (doc.status === 'ready' ? 'text-emerald-600' : doc.hasExtractedText ? 'text-amber-700' : 'text-slate-400')}>
                       {workingId === doc.id ? t.extracting : doc.status === 'ready' ? t.scanned
-                        : doc.merchant || doc.documentDate || doc.amountCents !== null ? t.partial
+                        : doc.merchant || doc.documentDate || doc.amountCents != null ? t.partial
                         : doc.hasExtractedText ? t.textOnly : t.pending}
                     </span>
                   </button>
@@ -331,8 +341,12 @@ export default function VaultPanel({ language, email }: { language: Language; em
         <a className="mt-2 inline-block text-xs font-semibold text-brand underline" href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'} target="_blank" rel="noreferrer">{t.privacy}</a>
       </div>
 
-      {selected && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[2px] sm:items-center" onMouseDown={e => {if (e.target === e.currentTarget) setSelected(null);}}>
-        <div role="dialog" aria-modal="true" aria-label={t.selected} className="max-h-[90vh] w-full max-w-[540px] overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl sm:p-8">
+      <AnimatePresence>
+      {selected && <motion.div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[2px] sm:items-center"
+        initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
+        onMouseDown={e => {if (e.target === e.currentTarget) setSelected(null);}}>
+        <motion.div role="dialog" aria-modal="true" aria-label={t.selected} className="max-h-[90vh] w-full max-w-[540px] overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl sm:p-8"
+          initial={reducedMotion ? {} : {opacity: 0, y: 30}} animate={{opacity: 1, y: 0}} exit={reducedMotion ? {} : {opacity: 0, y: 20}}>
           <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-brand">{t.personal}</span><button aria-label={t.close} onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={20}/></button></div>
           <div className="mt-5 flex h-48 flex-col items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50">
             {selected.mimeType.startsWith('image/') ? <img className="h-full w-full object-contain" alt={selected.filename} src={fileLink(selected.id)}/>
@@ -350,8 +364,9 @@ export default function VaultPanel({ language, email }: { language: Language; em
             <button onClick={() => void analyze(selected.id)} disabled={!!workingId} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-4 py-3 text-sm font-semibold text-brand disabled:opacity-50"><Sparkles size={16}/>{workingId === selected.id ? t.analyzing : t.analyze}</button>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-slate-500">{t.note} {t.noAI}</p>
-        </div>
-      </div>}
+        </motion.div>
+      </motion.div>}
+      </AnimatePresence>
     </section>
   );
 }

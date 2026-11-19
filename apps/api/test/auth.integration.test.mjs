@@ -151,11 +151,13 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       });
       assert.equal(partial.statusCode, 200, partial.body);
       assert.equal(partial.json().document.status, 'uploaded');
-      const quota = await app.inject({
+      // The application no longer enforces per-day AI quotas.
+      // A non-existent legacy quota endpoint must not be relied on.
+      const retiredQuota = await app.inject({
         method: 'POST', url: '/api/ai/consume',
         headers: { ...headers, cookie }, payload: {}
       });
-      assert.equal(quota.statusCode, 200, quota.body);
+      assert.equal(retiredQuota.statusCode, 404);
       const deleted = await app.inject({
         method: 'DELETE', url: '/api/documents/' + id,
         headers: { origin: 'http://localhost:5173', cookie }
