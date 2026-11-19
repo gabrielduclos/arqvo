@@ -66,36 +66,101 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
     const userId = await requireSession(request, reply);
     if (!userId) return;
     const params = request.query || {};
-    const rawQ = typeof params.q === 'string' ? params.q.trim().slice(0, 160) : '';
-    const merchant = typeof params.merchant === 'string' ? params.merchant.trim().slice(0, 150) : '';
-    const dateStart = typeof params.dateStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.dateStart) ? params.dateStart : null;
-    const dateEnd = typeof params.dateEnd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.dateEnd) ? params.dateEnd : null;
-    const amountMin = Number.isSafeInteger(Number(params.amountMin)) && params.amountMin !== undefined
-      && String(params.amountMin) !== '' && Number(params.amountMin) >= 0 ? Number(params.amountMin) : null;
-    const amountMax = Number.isSafeInteger(Number(params.amountMax)) && params.amountMax !== undefined
-      && String(params.amountMax) !== '' && Number(params.amountMax) >= 0 ? Number(params.amountMax) : null;
+    const text = (name, max) => {
+      const value = params[name];
+      return value === undefined ? '' : typeof value === 'string' && value.length <= max
+        ? value.trim() : null;
+    };
+    const date = (name) => {
+      const value = text(name, 10);
+      if (value === null || !value) return value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+      const d = new Date(value + 'T00:00:00.000Z');
+      return Number.isFinite(d.valueOf()) && d.toISOString().slice(0, 10) === value ? value : null;
+    };
+    const cents = (name) => {
+      const value = text(name, 12);
+      if (value === null || !value) return value === '' ? null : NaN;
+      return /^\d{1,12}$/.test(value) && Number(value) <= 100000000000
+        && Number.isSafeInteger(Number(value)) ? Number(value) : NaN;
+    };
+
+    const q = text('q', 160);
+    const merchant = text('merchant', 150);
+    const dateStart = date('dateStart');
+    const dateEnd = date('dateEnd');
+    const uploadStart = date('uploadStart');
+    const uploadEnd = date('uploadEnd');
+    const amountMin = cents('amountMin');
+    const amountMax = cents('amountMax');
+    const type = text('type', 12);
+    const analysis = text('analysis', 14);
+    const sort = text('sort', 30) || 'newest';
+
+    const sorts = {
+      newest: 'created_at DESC, id DESC',
+      oldest: 'created_at ASC, id ASC',
+      document_newest: 'document_date DESC NULLS LAST, created_at DESC, id DESC',
+      document_oldest: 'document_date ASC NULLS LAST, created_at DESC, id DESC',
+      amount_high: 'amount_cents DESC NULLS LAST, created_at DESC, id DESC',
+      amount_low: 'amount_cents ASC NULLS LAST, created_at DESC, id DESC',
+      merchant: 'lower(merchant) ASC NULLS LAST, created_at DESC, id DESC'
+    };
+    if (q === null || merchant === null ||
+        dateStart === null || dateEnd === null || uploadStart === null || uploadEnd === null ||
+        Number.isNaN(amountMin) || Number.isNaN(amountMax) ||
+        type === null || !['', 'pdf', 'image'].includes(type) ||
+        analysis === null || !['', 'ready', 'partial', 'text_only', 'pending', 'failed'].includes(analysis) ||
+        !Object.hasOwn(sorts, sort) ||
+        (dateStart && dateEnd && dateStart > dateEnd) ||
+        (uploadStart && uploadEnd && uploadStart > uploadEnd) ||
+        (amountMin !== null && amountMax !== null && amountMin > amountMax)) {
+      return sendError(reply, 400, 'invalid_filters');
+    }
     try {
+      // The sort SQL is chosen from a fixed whitelist; all values remain bound.
       const result = await pool.query(
-        `SELECT id, original_filename AS "filename", mime_type AS "mimeType",
+        `WITH owned AS (
+           SELECT id, original_filename, mime_type, size_bytes, status,
+                  merchant, document_date, amount_cents, currency, created_at,
+                  extracted_text,
+                  CASE
+                    WHEN status = 'ready' THEN 'ready'
+                    WHEN status = 'failed' THEN 'failed'
+                    WHEN nullif(btrim(merchant), '') IS NOT NULL
+                      OR document_date IS NOT NULL OR amount_cents IS NOT NULL THEN 'partial'
+                    WHEN nullif(btrim(extracted_text), '') IS NOT NULL THEN 'text_only'
+                    ELSE 'pending'
+                  END AS analysis_state
+           FROM public.documents WHERE owner_uid=$1
+         )
+         SELECT id, original_filename AS "filename", mime_type AS "mimeType",
                 size_bytes AS "sizeBytes", status, merchant,
-                (extracted_text IS NOT NULL AND length(trim(extracted_text)) > 0) AS "hasExtractedText",
+                (nullif(btrim(extracted_text),'') IS NOT NULL) AS "hasExtractedText",
+                analysis_state AS "analysisState",
                 document_date AS "documentDate", amount_cents AS "amountCents",
                 currency, created_at AS "createdAt"
-         FROM public.documents
-         WHERE owner_uid=$1
-           AND ($2::text IS NULL OR position(lower($2) in lower(
-             coalesce(original_filename,'') || ' ' || coalesce(merchant,'') || ' ' || coalesce(extracted_text,'')))>0)
-           AND ($3::text IS NULL OR position(lower($3) in lower(coalesce(merchant,'')))>0)
+         FROM owned
+         WHERE ($2::text IS NULL OR position(lower($2) IN lower(
+           coalesce(original_filename,'') || ' ' || coalesce(merchant,'') || ' ' ||
+           coalesce(extracted_text,''))) > 0)
+           AND ($3::text IS NULL OR position(lower($3) IN lower(coalesce(merchant,''))) > 0)
            AND ($4::date IS NULL OR document_date >= $4)
            AND ($5::date IS NULL OR document_date <= $5)
            AND ($6::bigint IS NULL OR amount_cents >= $6)
            AND ($7::bigint IS NULL OR amount_cents <= $7)
-         ORDER BY created_at DESC LIMIT 100`,
-        [userId, rawQ || null, merchant || null, dateStart, dateEnd, amountMin, amountMax]
+           AND ($8::date IS NULL OR created_at >= ($8::date::timestamp AT TIME ZONE 'UTC'))
+           AND ($9::date IS NULL OR created_at < (($9::date + 1)::timestamp AT TIME ZONE 'UTC'))
+           AND ($10::text IS NULL OR ($10='pdf' AND mime_type='application/pdf')
+                OR ($10='image' AND mime_type LIKE 'image/%'))
+           AND ($11::text IS NULL OR analysis_state = $11)
+         ORDER BY ${sorts[sort]} LIMIT 100`,
+        [userId, q || null, merchant || null, dateStart || null, dateEnd || null,
+          amountMin, amountMax, uploadStart || null, uploadEnd || null, type || null, analysis || null]
       );
       return { documents: result.rows };
     } catch (err) {
-      request.log.error({ err }, 'Document list failed');
+      request.log.error({ err }, 'Document filtered list failed');
       return sendError(reply, 503, 'documents_unavailable');
     }
   });
