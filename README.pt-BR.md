@@ -9,14 +9,14 @@ O Arqvo é um organizador de documentos open source focado em privacidade, recib
 ## Visão do produto
 Fotografar documentos ou importar imagens e PDFs; preservar arquivos originais; extrair valores, datas e estabelecimentos; encontrar documentos e baixar os originais com segurança. OCR e busca por IA são etapas planejadas.
 
-> **Status atual: preparação da infraestrutura.** A API tem apenas rotas de monitoramento. Uploads, autenticação, OCR, busca e downloads AINDA NÃO foram implementados.
+> **Status atual: demonstração visual / pré-MVP.** Já existe código de interface React com exemplos fictícios. A API tem apenas rotas de monitoramento. Uploads, autenticação, OCR, busca em arquivos reais e downloads AINDA NÃO foram implementados.
 
 ## Infraestrutura
-- PWA React + TypeScript (planejado).
+- Interface React + Vite + TypeScript + Tailwind publicada via **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds vinculado ao GitHub `main`.
 - API Node.js no **Render**, serviço independente `arqvo-api`.
 - PostgreSQL no **Neon**, projeto/banco separado `arqvo`.
 - Bucket privado **Cloudflare R2** para arquivos originais (planejado).
-- GitHub Actions para testes.
+- GitHub Actions para testes da API e compilação web; Cloudflare Builds para deploy.
 
 ## Como executar
 Requer Node.js 22 ou superior.

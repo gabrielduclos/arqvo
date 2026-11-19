@@ -9,14 +9,14 @@ Arqvo is an open-source, privacy-first organizer for receipts, invoices, proofs 
 ## Product vision
 Capture documents using a camera or import images and PDFs. Preserve original files, extract searchable amounts, dates and merchant information, then find and securely download those originals. Natural-language search and OCR are planned.
 
-> **Current status: infrastructure bootstrap.** The API only exposes health endpoints. File uploads, authentication, OCR, search, and downloads are NOT implemented yet.
+> **Current status: UI demo / pre-MVP.** A React frontend with clearly labeled fictional sample documents is available in source. The API exposes only health endpoints. File uploads, authentication, OCR, real-document search, and downloads are NOT implemented yet.
 
 ## Infrastructure
-- React + TypeScript PWA (planned).
+- React + Vite + TypeScript + Tailwind UI hosted as **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds configured for GitHub `main`.
 - Node.js API on **Render**, independent service `arqvo-api`.
 - PostgreSQL on **Neon**, separate project/database `arqvo`.
 - Private **Cloudflare R2** bucket for original files (planned).
-- GitHub Actions for automated tests.
+- GitHub Actions for API tests and frontend build checks; Cloudflare Builds handles web deployment.
 
 ## Getting started
 Requires Node.js 22 or later.
