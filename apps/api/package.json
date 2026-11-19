@@ -1,7 +1,7 @@
 {
   "name": "@arqvo/api",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "fastify": "^5.0.0",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "better-auth": "^1.7.26"
   }
 }

@@ -1,9 +1,18 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "arqvo",
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-11-19",
+  "vars": {
+    "API_ORIGIN": "https://arqvo-api.onrender.com"
+  },
+  "r2_buckets": [
+    { "binding": "DOCS_BUCKET", "bucket_name": "arqvo-documents" }
+  ],
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   }
 }
