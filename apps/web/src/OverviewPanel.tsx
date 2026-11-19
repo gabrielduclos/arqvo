@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowUpRight, CalendarDays, CircleCheck, FileImage, FileText, FolderOpen, LoaderCircle, RefreshCw, Sparkles, Wallet } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarDays, CircleCheck, FileImage, FileText, FolderOpen, LoaderCircle, RefreshCw, Wallet } from 'lucide-react';
 
 type Language = 'pt' | 'en';
 type DocumentView = 'all' | 'month' | 'identified';
@@ -26,7 +26,7 @@ const labels = {
     identifiedHint: 'Com metadados reconhecidos', incompleteHint: 'Sem informações suficientes', month: 'Este mês',
     fieldNone: 'Dados ainda não identificados', processed: 'Dados identificados', partial: 'Identificação parcial', pending: 'Aguardando análise',
     privacy: 'Somente documentos da sua conta são incluídos neste painel.',
-    ai: 'Extração automática', aiDesc: 'Ao enviar um arquivo na seção Documentos, a IA tenta reconhecer estabelecimento, data e valor.'
+
   },
   en: {
     title: 'Overview', subtitle: 'A summary of your own stored documents, calculated from actual account data.',
@@ -38,7 +38,7 @@ const labels = {
     identifiedHint: 'With recognized metadata', incompleteHint: 'Without sufficient details', month: 'This month',
     fieldNone: 'Data not yet identified', processed: 'Data identified', partial: 'Partial identification', pending: 'Waiting for analysis',
     privacy: 'This overview only includes documents owned by your account.',
-    ai: 'Automatic extraction', aiDesc: 'When you upload a file in Documents, AI attempts to recognize the merchant, date and amount.'
+
   }
 };
 
@@ -121,20 +121,12 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
           ))}
         </div>
 
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><Wallet size={20}/></span>
-              <div><h2 className="text-sm font-semibold">{t.amount}</h2><p className="mt-1 text-xs text-slate-400">{overview.valuedCount} / {docs.length} {t.documents.toLowerCase()} · {overview.partial} {t.incomplete.toLowerCase()}</p></div>
-            </div>
-            <p className="mt-4 break-words text-[28px] font-semibold tracking-tight tabular-nums sm:text-3xl">{money.format(overview.cents / 100)}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.amountNote}</p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><Wallet size={20}/></span>
+            <div><h2 className="text-sm font-semibold">{t.amount}</h2><p className="mt-1 text-xs text-slate-400">{overview.valuedCount} / {docs.length} {t.documents.toLowerCase()} · {overview.partial} {t.incomplete.toLowerCase()}</p></div>
           </div>
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:p-6">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-white text-brand"><Sparkles size={20}/></span>
-            <h2 className="mt-4 text-sm font-semibold">{t.ai}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{t.aiDesc}</p>
-            <button onClick={() => onOpenDocuments('all')} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
-          </div>
+          <p className="mt-4 break-words text-[28px] font-semibold tracking-tight tabular-nums sm:text-3xl">{money.format(overview.cents / 100)}</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.amountNote}</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
