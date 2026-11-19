@@ -51,3 +51,17 @@ test('Better Auth refuses to initialize without an email sender', () => {
     enabled: true, mailer: null
   }), /email sender/);
 });
+
+test('resend errors never include credentials or message bodies', async () => {
+  const mailer = createResendMailer({
+    apiKey: 're_do_not_log_this',
+    from: 'arqvo@uorqui.app',
+    fetchImpl: async () => ({ ok: false, status: 403 })
+  });
+  await assert.rejects(
+    mailer.send({ to: 'recipient@example.test', subject: 'Verify', text: 'Token is private' }),
+    error => error.message === 'resend_delivery_failed'
+      && !error.message.includes('re_do_not_log_this')
+      && !error.message.includes('Token is private')
+  );
+});

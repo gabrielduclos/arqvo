@@ -41,7 +41,7 @@ export function createArqvoAuth({
     throw new Error('BETTER_AUTH_URL must be a canonical HTTPS origin in production');
   }
 
-  function deliver(type, user, url) {
+  async function deliver(type, user, url) {
     const link = validateAuthLink(url, baseURL);
     const isVerification = type === 'verification';
     const subject = isVerification ? 'Arqvo — Verifique seu e-mail' : 'Arqvo — Redefina sua senha';
@@ -51,15 +51,18 @@ export function createArqvoAuth({
     const english = isVerification
       ? 'Verify your email address to access Arqvo.'
       : 'Use the link below to reset your Arqvo password.';
-    // Avoid response-time email enumeration. Node keeps the send request running.
-    // A durable queue is recommended before high-volume public registration.
-    void Promise.resolve()
-      .then(() => mailer.send({
+    try {
+      await mailer.send({
         to: user.email,
         subject,
         text: `${intro}\n\n${link}\n\n${english}\n\nSe não solicitou esta ação, ignore este e-mail.\nIf you did not request this, ignore this message.\n`
-      }))
-      .catch(() => logEmailError(type)); // do not log recipient, token or link
+      });
+    } catch {
+      // Fail visibly rather than silently accepting signups with no verification email.
+      // Do not log the recipient, link, authentication token or provider credentials.
+      logEmailError(type);
+      throw new Error('auth_email_delivery_failed');
+    }
   }
 
   return betterAuth({
