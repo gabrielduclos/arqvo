@@ -101,6 +101,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Document | null>(null);
+  const [detailText, setDetailText] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -147,6 +148,21 @@ export default function VaultPanel({ language, email }: { language: Language; em
     }
   }
   useEffect(() => { void refresh(); }, [email]);
+  useEffect(() => {
+    setDetailText(null);
+    if (!selected) return;
+    const controller = new AbortController();
+    fetch('/api/documents/' + selected.id, {
+      credentials: 'same-origin', cache: 'no-store', signal: controller.signal
+    }).then(r => r.ok ? r.json() : null)
+      .then(body => {
+        if (!controller.signal.aborted) setDetailText(
+          typeof body?.document?.extractedText === 'string' ? body.document.extractedText : ''
+        );
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [selected?.id, selected?.status]);
+
 
   async function analyze(id: string, automatic = false) {
     if (!automatic && !window.confirm(t.confirmAI)) return;
@@ -359,6 +375,10 @@ export default function VaultPanel({ language, email }: { language: Language; em
             <div><p className="text-xs text-slate-500">{t.date}</p><p className="mt-1 font-semibold">{date(selected.documentDate)}</p></div>
             <div><p className="text-xs text-slate-500">{t.format}</p><p className="mt-1 font-semibold">{selected.mimeType.split('/')[1]?.toUpperCase()}</p></div>
           </div>
+          <details className="mt-5 rounded-xl border border-slate-200 p-4 text-sm">
+            <summary className="cursor-pointer font-semibold text-slate-700">{t.ocrText}</summary>
+            <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{detailText === null ? '…' : detailText || t.ocrEmpty}</pre>
+          </details>
           <div className="mt-5 flex flex-wrap gap-3">
             <a href={fileLink(selected.id, true)} className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white"><ArrowDownToLine size={17}/>{t.download}</a>
             <button onClick={() => void analyze(selected.id)} disabled={!!workingId} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-4 py-3 text-sm font-semibold text-brand disabled:opacity-50"><Sparkles size={16}/>{workingId === selected.id ? t.analyzing : t.analyze}</button>

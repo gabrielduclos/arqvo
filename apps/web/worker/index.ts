@@ -293,13 +293,17 @@ function readReceiptHints(text: string): { date: string | null; amountCents: num
   }
   const totalLines = lines.filter(line =>
     /\b(total|valor\s+pago|valor\s+a\s+pagar|valor\s+total|total\s+da\s+nota)\b/i.test(line));
-  const moneyPattern = /(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})(?!\d)/g;
+  // Vision OCR may normalize a Brazilian 35,90 total to 35.90.
+  const moneyPattern = /(?:R\$\s*)?((?:\d{1,3}(?:[.,]\d{3})+|\d+)[.,]\d{2})(?!\d)/g;
   let amountCents: number | null = null;
   for (const line of totalLines) {
     const amounts = [...line.matchAll(moneyPattern)];
     if (!amounts.length) continue;
     const last = amounts[amounts.length - 1][1];
-    const value = Math.round(Number(last.replace(/\./g, '').replace(',', '.')) * 100);
+    const decimalAt = Math.max(last.lastIndexOf('.'), last.lastIndexOf(','));
+    const whole = Number(last.slice(0, decimalAt).replace(/[.,]/g, ''));
+    const fraction = Number(last.slice(decimalAt + 1));
+    const value = whole * 100 + fraction;
     if (Number.isSafeInteger(value) && value >= 0 && value <= 100000000000) {
       amountCents = value;
     }
