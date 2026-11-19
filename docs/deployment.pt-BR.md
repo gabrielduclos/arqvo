@@ -6,7 +6,8 @@
 - **GitHub:** `gabrielduclos/arqvo`.
 - **Neon:** projeto separado `arqvo`, banco `arqvo`, São Paulo `aws-sa-east-1`.
 - **Render:** criar um novo web service `arqvo-api` no workspace existente confirmado. Não alterar serviços do Uorqui.
-- **R2 / frontend:** ainda não criados.
+- **Cloudflare Worker:** `arqvo` publicado em https://arqvo.uorqui1.workers.dev, com SPA React/Tailwind e proxy de mesma origem `/api/auth/*` até o Render.
+- **R2:** bucket privado `arqvo-documents` criado e vinculado ao Worker como `DOCS_BUCKET`; sem domínio público e ainda sem endpoints de arquivos.
 
 ## Configuração Render
 Após confirmar o workspace correto, importe o [render.yaml](../render.yaml) revisado ou crie um serviço Node:
@@ -25,6 +26,9 @@ Após confirmar o workspace correto, importe o [render.yaml](../render.yaml) rev
 Se a integração não permitir indicar o diretório raiz, configure pela raiz:
 - Build: `npm install --prefix apps/api --no-audit --no-fund`
 - Start: `npm --prefix apps/api start`
+
+## Better Auth (preparado)
+A API Render contém integração Fastify com Better Auth. `BETTER_AUTH_SECRET` e `BETTER_AUTH_URL` estão configurados; `AUTH_ENABLED=false` até aprovação e validação do login. O esquema `docs/database/002_better_auth.sql` foi testado apenas em branch temporária Neon. Não considerar autenticação ativa antes de revisar/aplicar migração, configurar verificação de e-mail e testar sessões/cookies. Consulte [auth.md](auth.md).
 
 ## Neon
 Projeto separado do Uorqui. Nunca reutilizar string de conexão ou credenciais do Uorqui. A [migração proposta](database/001_initial.sql) **não foi aplicada**.

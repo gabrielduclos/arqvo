@@ -6,7 +6,8 @@
 - **GitHub:** `gabrielduclos/arqvo`.
 - **Neon:** separate project named `arqvo`, database `arqvo`, São Paulo `aws-sa-east-1`.
 - **Render:** create a new web service named `arqvo-api` in the confirmed existing workspace. Do not alter Uorqui's services.
-- **R2 / frontend:** not provisioned.
+- **Cloudflare Worker:** `arqvo` deployed at https://arqvo.uorqui1.workers.dev with React/Tailwind SPA and `/api/auth/*` same-origin proxy to Render.
+- **R2:** private `arqvo-documents` bucket is created and bound to the Worker as `DOCS_BUCKET`; no public domain, and no file operations exposed yet.
 
 ## Render setup
 After confirming the correct workspace, either import the reviewed [render.yaml](../render.yaml) or create a Node web service:
@@ -25,6 +26,9 @@ After confirming the correct workspace, either import the reviewed [render.yaml]
 If using a service-creation connector that cannot set Root Directory, use the repository root and instead configure:
 - Build: `npm install --prefix apps/api --no-audit --no-fund`
 - Start: `npm --prefix apps/api start`
+
+## Better Auth (staged)
+The Render API contains a Better Auth Fastify integration. `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are set as environment configuration; `AUTH_ENABLED=false` until approval and complete login verification. The core-schema migration `docs/database/002_better_auth.sql` has been tested on a temporary Neon branch only. Do not mark authentication as live before applying a reviewed migration, setting up email verification, enabling auth and testing sign-in/session/cookie flows. See [auth.md](auth.md).
 
 ## Neon
 The Neon project is independent from Uorqui. Never reuse Uorqui's connection string or role. The migration [001_initial.sql](database/001_initial.sql) is a reviewable proposal only, **not applied**.

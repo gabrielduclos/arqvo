@@ -15,8 +15,13 @@ Fotografar documentos ou importar imagens e PDFs; preservar arquivos originais; 
 - Interface React + Vite + TypeScript + Tailwind publicada via **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds vinculado ao GitHub `main`.
 - API Node.js no **Render**, serviço independente `arqvo-api`.
 - PostgreSQL no **Neon**, projeto/banco separado `arqvo`.
-- Bucket privado **Cloudflare R2** para arquivos originais (planejado).
+- Bucket privado **Cloudflare R2** `arqvo-documents` provisionado, ainda sem APIs de arquivos.
+- **Better Auth** preparado na API Render; login não foi ativado até a aprovação da migração Neon e fluxo de verificação de e-mail.
 - GitHub Actions para testes da API e compilação web; Cloudflare Builds para deploy.
+
+### Interface Cloudflare
+
+Demonstração: https://arqvo.uorqui1.workers.dev — contém somente exemplos fictícios. O Worker já tem proxy de autenticação e binding R2 privado, mas ainda não disponibiliza upload nem download de documentos reais.
 
 ## Como executar
 Requer Node.js 22 ou superior.

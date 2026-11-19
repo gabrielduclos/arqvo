@@ -7,7 +7,10 @@ The unchecked items are planned, **not implemented**. / Itens desmarcados são p
 - [x] Independent Neon project / Projeto Neon independente
 - [x] Render API scaffold / Estrutura inicial API Render
 - [x] Deploy separate Render service / Publicar serviço Render separado
-- [ ] Provision private Cloudflare R2 bucket / Criar bucket privado R2
+- [x] Cloudflare SPA deploy / Publicar a interface Cloudflare
+- [x] Provision private Cloudflare R2 bucket / Criar bucket privado R2
+- [x] Prepare Better Auth code and test migration on temporary Neon branch / Preparar Better Auth e testar migração em branch temporária
+- [ ] Approve/apply Better Auth migration, verify email and activate sign-in / Aprovar e aplicar migração, verificar e-mail e ativar login
 
 ## Phase 1 / Fase 1 — Secure documents
 - [ ] Authentication and per-owner authorization / Autenticação e autorização por proprietário
