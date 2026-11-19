@@ -35,7 +35,7 @@ function looksIssuer(value: string): boolean {
 export function merchantCandidate(text: string): MerchantCandidate | null {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 120);
   // Prefer explicit issuer fields, including labels whose value appears on the following line.
-  const issuerLabel = /^(?:nome\s*fantasia|raz[aã]o\s*social|nome\s*empresarial|nome\s+do\s+(?:emitente|estabelecimento)|emitente|fornecedor|vendedor)\s*[:\-]?\s*(.*)$/i;
+  const issuerLabel = /^(?:nome\s*fantasia|raz[aã]o\s*social|nome\s*empresarial|nome\s+do\s+(?:emitente|estabelecimento)|estabelecimento|emitente|fornecedor|vendedor)\s*[:\-]?\s*(.*)$/i;
   for (let i = 0; i < Math.min(70, lines.length); i++) {
     const match = lines[i].match(issuerLabel);
     if (!match) continue;
@@ -65,7 +65,7 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
 
 const itemHeader = /(?:^|\b)(?:descri[cç][aã]o(?:\s+dos?\s+(?:produtos?|servi[cç]os?|itens?))?|detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?)|itens?\s+(?:comprados|adquiridos|da\s+compra)|produtos?\s+adquiridos|c[oó]d(?:igo)?\s+descri[cç][aã]o|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|item\s+c[oó]d(?:igo)?|produto\s+(?:qtd|qtde))\b/i;
 const stopItems = /^(?:total(?:\s+(?:geral|a\s+pagar|da\s+nota|da\s+compra))?|subtotal|resumo\s+de|pagamento|forma\s+de\s+pagamento|cart[aã]o|pix|troco|desconto|imposto|tributos|informac[oõ]es|consulta|protocolo|consumidor|cpf|cnpj|chave|qr\s*code|observac[oõ]es|valor\s+(?:pago|total|a\s+pagar))\b/i;
-const itemNoise = /^(?:item|cod(?:igo)?|descri[cç][aã]o|qtd|qtde|quantidade|unidade|valor\s*un|vl\s*un|vl\s*total|ncm|cfop|pre[cç]o|R\$|serie)\b/i;
+const itemNoise = /^(?:item\s+(?:c[oó]d|descri[cç][aã]o)|cod(?:igo)?\s+(?:descri[cç][aã]o|qtd)|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|qtd\s+(?:unidade|valor)|qtde\s+(?:unidade|valor)|quantidade\s+(?:unidade|valor)|unidade\s+valor|valor\s*un|vl\s*un|vl\s*total|ncm\s+cfop|cfop\s+ncm|pre[cç]o\s+unit|R\$\s*$|serie\s+nota)\b/i;
 
 function priceRow(line: string): boolean {
   return price.test(line) || /\d+(?:[,.]\d+)?\s*(?:un|und|kg|l|lt|cx|pc)\s/i.test(line)
