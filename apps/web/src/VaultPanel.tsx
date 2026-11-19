@@ -11,6 +11,9 @@ import DocumentFilters, {
 import { categoryLabel, categoryOptions } from './documentCategories';
 import UploadSourceModal, { type UploadSource } from './UploadSourceModal';
 import DocumentScannerModal from './DocumentScannerModal';
+import DocumentCreatorModal from './DocumentCreatorModal';
+import UploadQueuePanel from './UploadQueuePanel';
+import { useDocumentUploadQueue } from './useDocumentUploadQueue';
 
 type Language = 'pt' | 'en';
 type DocumentView = 'all' | 'month' | 'identified';
@@ -121,9 +124,9 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [showUploadInfo, setShowUploadInfo] = useState(false);
   const [showUploadSource, setShowUploadSource] = useState(false);
   const [scanFile, setScanFile] = useState<File | null>(null);
+  const [showDocumentCreator, setShowDocumentCreator] = useState(false);
   const requestSequence = useRef(0);
   const reducedMotion = useReducedMotion();
-  const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Document | null>(null);
   const [editingMetadata, setEditingMetadata] = useState(false);
@@ -179,6 +182,9 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
       if (requestId === requestSequence.current) setLoading(false);
     }
   }
+  const queue = useDocumentUploadQueue(language, () => { void refresh(); }, problem);
+  const busy = queue.items.some(item => ['scanning', 'uploading', 'analyzing'].includes(item.status));
+
   useEffect(() => {
     const next = presetFilters(initialView);
     setFilters(next);
@@ -281,41 +287,13 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     }
   }
 
-  async function upload(file: File, localScan?: { text: string; confidence: number }) {
-    if (busy) return;
-    setError(''); setMessage('');
-    if (!ALLOWED.has(file.type)) { setError(t.type); return; }
-    if (!file.size || file.size > MAX_BYTES) { setError(t.large); return; }
-    setBusy(true);
-    try {
-      const response = await fetch('/api/documents', {
-        method: 'POST', credentials: 'same-origin',
-        headers: {
-          'Content-Type': file.type,
-          'X-File-Name': encodeURIComponent(file.name)
-        },
-        body: file,
-        signal: AbortSignal.timeout(90000)
-      });
-      const result = await parse(response);
-      if (!response.ok || !result.document) throw new Error(problem(result.error));
-      setMessage(t.saved);
-      await refresh();
-      await analyze(result.document.id, true, localScan);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t.error);
-    } finally {
-      setBusy(false);
-      for (const input of [fileRef.current, cameraRef.current, galleryRef.current]) {
-        if (input) input.value = '';
-      }
-    }
-  }
-
   function chooseUploadSource(source: UploadSource) {
-    if (busy) return;
-    // Must be invoked synchronously from the button's real click event:
-    // iOS Safari and Android browsers require a user gesture to open pickers.
+    // Picker calls must happen within the user's click, particularly on iOS Safari.
+    if (source === 'scanner') {
+      setShowUploadSource(false);
+      setShowDocumentCreator(true);
+      return;
+    }
     const input = source === 'camera' ? cameraRef.current :
       source === 'gallery' ? galleryRef.current : fileRef.current;
     input?.click();
@@ -323,17 +301,18 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   }
 
   function onFilePicked(event: React.ChangeEvent<HTMLInputElement>) {
-    const picked = event.currentTarget.files?.[0];
-    // Allow users to select the same file again after upload/cancellation.
+    const selectedFiles = Array.from(event.currentTarget.files || []);
     event.currentTarget.value = '';
-    if (picked) {
-      if (picked.type.startsWith('image/')) {
-        if (!ALLOWED.has(picked.type) || !picked.size || picked.size > MAX_BYTES) {
-          setError(!ALLOWED.has(picked.type) ? t.type : t.large);
-          return;
-        }
-        setScanFile(picked);
-      } else void upload(picked);
+    if (!selectedFiles.length) return;
+    if (selectedFiles.length === 1 && selectedFiles[0].type.startsWith('image/')) {
+      const file = selectedFiles[0];
+      if (!ALLOWED.has(file.type) || !file.size || file.size > MAX_BYTES) {
+        setError(!ALLOWED.has(file.type) ? t.type : t.large);
+        return;
+      }
+      setScanFile(file);
+    } else {
+      queue.enqueue(selectedFiles);
     }
   }
 
@@ -372,11 +351,10 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           </div>
           <p className="mt-2 text-sm text-slate-500">{t.intro}</p>
         </div>
-        <button type="button" onClick={() => setShowUploadSource(true)} disabled={busy}
+        <button type="button" onClick={() => setShowUploadSource(true)}
           aria-haspopup="dialog"
           className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 sm:w-auto">
-          {busy ? <LoaderCircle size={17} className="animate-spin"/> : <FilePlus2 size={17}/>}
-          {busy ? t.processing : t.upload}
+          <FilePlus2 size={17}/>{t.upload}
         </button>
         {/* The three native pickers remain mounted outside the dialog. The
             initial selection is ours; the OS handles capture and file access. */}
@@ -385,14 +363,15 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           accept="image/*" capture="environment" onChange={onFilePicked}/>
         <input ref={galleryRef} type="file" className="hidden" tabIndex={-1}
           aria-label={language === 'pt' ? 'Escolher imagem da galeria' : 'Choose photo from gallery'}
-          accept="image/jpeg,image/png,image/webp" onChange={onFilePicked}/>
+          accept="image/jpeg,image/png,image/webp" multiple onChange={onFilePicked}/>
         <input ref={fileRef} type="file" className="hidden" tabIndex={-1}
           aria-label={language === 'pt' ? 'Selecionar arquivo' : 'Choose file'}
           accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-          onChange={onFilePicked}/>
+          multiple onChange={onFilePicked}/>
       </div>
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={19}/>{error}<button aria-label={t.clear} onClick={() => setError('')} className="ml-auto"><X size={18}/></button></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700"><CheckCircle2 size={19}/>{message}<button aria-label={t.clear} onClick={() => setMessage('')} className="ml-auto"><X size={18}/></button></div>}
+      <UploadQueuePanel queue={queue} language={language}/>
 
       <div className="flex flex-wrap items-center justify-between gap-2" aria-label={t.searchAndFilters}>
         <h2 className="text-sm font-semibold text-ink">{t.searchAndFilters}</h2>
@@ -486,7 +465,15 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           onScanned={(text, confidence) => {
             const original = scanFile;
             setScanFile(null);
-            if (original) void upload(original, { text, confidence });
+            if (original) queue.enqueue([original], { text, confidence });
+          }}/>}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showDocumentCreator && <DocumentCreatorModal language={language}
+          onClose={() => setShowDocumentCreator(false)}
+          onCreate={(file, scan) => {
+            setShowDocumentCreator(false);
+            queue.enqueue([file], scan);
           }}/>}
       </AnimatePresence>
       <AnimatePresence>
