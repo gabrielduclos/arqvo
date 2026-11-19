@@ -157,7 +157,7 @@ export default function AuthPanel({ language, status, onAuthChange }: {
   return (
     <div className="w-full max-w-[470px]">
       <section aria-label={t.heading}
-        className="w-full rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm sm:p-9">
+        className="w-full rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[28px] sm:p-9">
         <div className="flex items-start justify-between">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand"><LockKeyhole size={23}/></div>
           <span className="rounded-full bg-brand-soft px-3 py-1.5 text-[11px] font-semibold text-brand">Arqvo</span>
@@ -174,20 +174,20 @@ export default function AuthPanel({ language, status, onAuthChange }: {
           <>
             <h2 className="mt-6 text-2xl font-semibold tracking-tight">{mode === 'register' ? t.register : mode === 'forgot' ? t.forgot : mode === 'reset' ? t.reset : t.heading}</h2>
             <p className="mt-2 text-sm text-slate-500">{t.secure}</p>
-            <form onSubmit={submit} className="mt-6 space-y-4">
+            <form onSubmit={submit} className="mt-6 space-y-5 sm:space-y-4">
               {mode === 'register' && (
                 <label className="block text-xs font-semibold text-slate-600">{t.name}
-                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><UserRound size={17} className="text-slate-400"/><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} className="min-w-0 flex-1 text-sm outline-none" /></span>
+                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><UserRound size={17} className="text-slate-400"/><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} className="min-w-0 flex-1 text-base outline-none sm:text-sm" /></span>
                 </label>
               )}
               {mode !== 'reset' && (
                 <label className="block text-xs font-semibold text-slate-600">{t.email}
-                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><Mail size={17} className="text-slate-400"/><input required type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="min-w-0 flex-1 text-sm outline-none" /></span>
+                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><Mail size={17} className="text-slate-400"/><input required type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="min-w-0 flex-1 text-base outline-none sm:text-sm" /></span>
                 </label>
               )}
               {mode !== 'forgot' && (
                 <label className="block text-xs font-semibold text-slate-600">{mode === 'reset' ? t.newPassword : t.password}
-                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><LockKeyhole size={17} className="text-slate-400"/><input required minLength={8} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={e => setPassword(e.target.value)} className="min-w-0 flex-1 text-sm outline-none" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-slate-400">{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span>
+                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><LockKeyhole size={17} className="text-slate-400"/><input required minLength={8} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={e => setPassword(e.target.value)} className="min-w-0 flex-1 text-base outline-none sm:text-sm" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-slate-400">{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span>
                 </label>
               )}
               {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</p>}
@@ -197,7 +197,7 @@ export default function AuthPanel({ language, status, onAuthChange }: {
                 {!busy && <ArrowRight size={17}/>}
               </button>
             </form>
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-brand">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm font-medium text-brand sm:text-xs">
               {mode === 'login' ? (
                 <>
                   {status.passwordRecoveryAvailable && <button type="button" onClick={() => changeMode('forgot')}>{t.forgotLink}</button>}
