@@ -1,6 +1,6 @@
 # Better Auth + Resend / Autenticação e e-mail
 
-**Current status / Situação:** Better Auth API **enabled** (`AUTH_ENABLED=true`) on Cloudflare + Render. **Public signup disabled** (`AUTH_PUBLIC_SIGNUP=false`). Production smoke passed (Render / Neon / Cloudflare / unauthenticated 401). Live Resend email delivery and real user sign-in are **not yet tested**.
+**Current status / Situação:** Better Auth API **enabled** (`AUTH_ENABLED=true`) on Cloudflare + Render. **Public signup enabled** (`AUTH_PUBLIC_SIGNUP=true`) at the user's request. Production smoke passed (Render / Neon / Cloudflare / unauthenticated 401). Live Resend email delivery and real user sign-in are **not yet tested**.
 
 ## Architecture
 - Frontend: Cloudflare Worker `arqvo`, https://arqvo.uorqui1.workers.dev
@@ -24,7 +24,8 @@
 - [ ] Send a real verification/reset email to a controlled test inbox and verify Resend delivery status.
 - [x] Set `AUTH_ENABLED=true`; Cloudflare `GET /api/auth/status` confirms enabled with signup disabled, and `GET /api/me` returns 401 without a session.
 - [ ] Validate authenticated sign-in, session cookie and sign-out with a real test account; do not mark as completed based solely on a 401 probe.
-- [ ] Set `AUTH_PUBLIC_SIGNUP=true` only after email delivery, verification, privacy policy and abuse protection have been tested.
+- [x] Set `AUTH_PUBLIC_SIGNUP=true` with explicit owner approval on 2026-11-19; **registration is open to everyone, not just the owner**. Email verification and Better Auth rate limits remain enabled.
+- [ ] Test real signup and Resend verification using the owner's chosen test mailbox, then confirm cookies and access control. Keep financial document upload disabled until privacy and security review.
 
 ## Render variables
 | Name | Status | Notes |
@@ -33,7 +34,7 @@
 | `BETTER_AUTH_SECRET` | Configured | Never in GitHub |
 | `BETTER_AUTH_URL` | Configured | https://arqvo.uorqui1.workers.dev |
 | `AUTH_ENABLED` | true | Backend enabled; signup remains disabled |
-| `AUTH_PUBLIC_SIGNUP` | false | Second explicit switch for registration |
+| `AUTH_PUBLIC_SIGNUP` | true | Public registration is enabled (anyone may request an account) |
 | `RESEND_API_KEY` | Operator configured | Not visible in GitHub, Obsidian or frontend; live delivery not yet verified |
 | `RESEND_FROM_EMAIL` | Configured | `arqvo@uorqui.app`; verify sender domain in Resend dashboard |
 
@@ -42,13 +43,13 @@
 2. Create an API key for the Arqvo project at https://resend.com/api-keys. Do not share it in GitHub issues or public chats.
 3. In the Render service `arqvo-api`, add the dedicated `RESEND_API_KEY` in Environment. The sender is already `arqvo@uorqui.app`.
 4. Check test email deliverability, callback URL, password-reset operation, session revocation and cookie protection.
-5. Only then activate authentication, and later public signup.
+5. Public signup is currently enabled by owner approval. Verify a live email and session before using real financial documents.
 
 ## Português / Instruções
 1. No Resend, acesse https://resend.com/domains e confirme que o domínio existente `uorqui.app` está **Verified**; não altere o DNS que já funciona sem necessidade.
 2. Gere uma chave de API para o Arqvo em https://resend.com/api-keys, sem publicá-la.
 3. No serviço Render `arqvo-api`, configure a chave `RESEND_API_KEY` como segredo. O remetente `arqvo@uorqui.app` já foi configurado.
 4. Valide entrega, URL de callback, redefinição de senha, revogação de sessões e cookies.
-5. Só então habilite autenticação; cadastro público é uma segunda etapa.
+5. O cadastro público foi habilitado por solicitação do proprietário. Valide e-mail e sessão real antes de armazenar documentos financeiros.
 
 **Never place private financial documents, credentials or active account tokens in the repository or vault. / Nunca publique documentos financeiros reais, segredos nem tokens.**

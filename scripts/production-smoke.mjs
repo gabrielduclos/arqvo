@@ -33,9 +33,9 @@ await poll('Render liveness', api + '/health/live',
   (status, body) => status === 200 && body?.service === 'arqvo-api' && body?.status === 'ok');
 await poll('Neon readiness', api + '/health/ready',
   (status, body) => status === 200 && body?.database === 'connected');
-await poll('Cloudflare auth is enabled, signup remains disabled', web + '/api/auth/status',
+await poll('Cloudflare auth and public signup enabled', web + '/api/auth/status',
   (status, body) => status === 200 && body?.enabled === true &&
-    body?.registrationAvailable === false && body?.emailVerificationRequired === true);
+    body?.registrationAvailable === true && body?.emailVerificationRequired === true);
 await poll('Private session data is protected without login', web + '/api/me',
   (status, body) => status === 401 && body?.error === 'unauthorized');
 console.log('Read-only production checks passed; email delivery is NOT verified by this test.');

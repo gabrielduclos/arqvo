@@ -13,7 +13,8 @@ The unchecked items are planned, **not implemented**. / Itens desmarcados são p
 - [x] Approve/apply Better Auth migration to Arqvo main / Aprovar e aplicar migração Better Auth na main do Arqvo
 - [x] Enable Better Auth API with public signup disabled; pass read-only production smoke / Ativar API Better Auth sem cadastro público; validar smoke test de produção
 - [ ] Verify real Resend email delivery and authenticated session / Validar entrega real via Resend e sessão autenticada
-- [ ] Approve public signup after privacy/abuse review / Autorizar cadastro público após revisar privacidade e proteção antiabuso
+- [x] Owner-approved public signup enabled / Cadastro público liberado com autorização do proprietário
+- [ ] Verify real email delivery, privacy notice and abuse safeguards / Validar e-mail real, aviso de privacidade e proteção antiabuso
 
 ## Phase 1 / Fase 1 — Secure documents
 - [ ] Authentication and per-owner authorization / Autenticação e autorização por proprietário
