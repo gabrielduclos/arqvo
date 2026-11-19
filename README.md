@@ -9,14 +9,14 @@ Arqvo is an open-source, privacy-first organizer for receipts, invoices, proofs 
 ## Product vision
 Capture documents using a camera or import images and PDFs. Preserve original files, extract searchable amounts, dates and merchant information, then find and securely download those originals. Natural-language search and OCR are planned.
 
-> **Current status: UI demo / pre-MVP.** A React frontend with clearly labeled fictional sample documents is available in source. The API exposes only health endpoints. File uploads, authentication, OCR, real-document search, and downloads are NOT implemented yet.
+> **Current status: UI demo / pre-MVP.** A React frontend with clearly labeled fictional sample documents is available in source. The API exposes health endpoints and Better Auth routes. Authentication API is enabled **without public signup**, but live verified-email delivery and an authenticated user session still need validation. File uploads, OCR, real-document search, and downloads are NOT implemented yet.
 
 ## Infrastructure
 - React + Vite + TypeScript + Tailwind UI hosted as **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds configured for GitHub `main`.
 - Node.js API on **Render**, independent service `arqvo-api`.
 - PostgreSQL on **Neon**, separate project/database `arqvo`.
 - Private **Cloudflare R2** bucket `arqvo-documents` provisioned, not yet accessible from document APIs.
-- **Better Auth** is staged in the Render API; login is not active until the reviewed Neon migration and verified-email flow are completed.
+- **Better Auth** API is enabled via Cloudflare → Render → Neon, with public signup disabled. Resend sender uses `arqvo@uorqui.app`; real email delivery not yet verified.
 - GitHub Actions for API tests and frontend build checks; Cloudflare Builds handles web deployment.
 
 ### Current Cloudflare frontend

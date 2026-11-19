@@ -11,7 +11,9 @@ The unchecked items are planned, **not implemented**. / Itens desmarcados são p
 - [x] Provision private Cloudflare R2 bucket / Criar bucket privado R2
 - [x] Prepare Better Auth code and test migration on temporary Neon branch / Preparar Better Auth e testar migração em branch temporária
 - [x] Approve/apply Better Auth migration to Arqvo main / Aprovar e aplicar migração Better Auth na main do Arqvo
-- [ ] Configure email verification and enable/test sign-in / Configurar verificação de e-mail e ativar/testar login
+- [x] Enable Better Auth API with public signup disabled; pass read-only production smoke / Ativar API Better Auth sem cadastro público; validar smoke test de produção
+- [ ] Verify real Resend email delivery and authenticated session / Validar entrega real via Resend e sessão autenticada
+- [ ] Approve public signup after privacy/abuse review / Autorizar cadastro público após revisar privacidade e proteção antiabuso
 
 ## Phase 1 / Fase 1 — Secure documents
 - [ ] Authentication and per-owner authorization / Autenticação e autorização por proprietário

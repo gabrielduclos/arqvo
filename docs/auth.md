@@ -1,6 +1,6 @@
 # Better Auth + Resend / Autenticação e e-mail
 
-**Current status / Situação:** Safe staging. Better Auth is implemented but **not live** (`AUTH_ENABLED=false`). Public registration is **also disabled** (`AUTH_PUBLIC_SIGNUP=false`).
+**Current status / Situação:** Better Auth API **enabled** (`AUTH_ENABLED=true`) on Cloudflare + Render. **Public signup disabled** (`AUTH_PUBLIC_SIGNUP=false`). Production smoke passed (Render / Neon / Cloudflare / unauthenticated 401). Live Resend email delivery and real user sign-in are **not yet tested**.
 
 ## Architecture
 - Frontend: Cloudflare Worker `arqvo`, https://arqvo.uorqui1.workers.dev
@@ -17,11 +17,13 @@
 - [x] Better Auth verification and password-reset callbacks prepared; 12-character minimum password, sessions revoked on password reset.
 - [x] Public `/api/auth/status` endpoint for the frontend (booleans only).
 - [x] Login/register/reset UI supports feature flags; it doesn't activate when auth is disabled.
-- [ ] Confirm `uorqui.app` is marked **Verified** in the Resend dashboard (DNS records present on Cloudflare).
+- [ ] Independently verify `uorqui.app` is **Verified** in Resend (operator reports configuration completed; DNS records are present on Cloudflare).
 - [x] Configure `RESEND_FROM_EMAIL=arqvo@uorqui.app` in Render.
-- [ ] Create and configure a dedicated `RESEND_API_KEY` in Render (secret).
-- [ ] Review CI full PostgreSQL signup/login/logout results and production transport.
-- [ ] Set `AUTH_ENABLED=true` **only after the above** and validate login + cookies on Cloudflare.
+- [x] Dedicated `RESEND_API_KEY` configured in Render by the operator; the running backend starts successfully with the configured sender.
+- [x] CI PostgreSQL signup/verification/login/logout tests passed, and production smoke passed (GitHub Actions run `44601453631`).
+- [ ] Send a real verification/reset email to a controlled test inbox and verify Resend delivery status.
+- [x] Set `AUTH_ENABLED=true`; Cloudflare `GET /api/auth/status` confirms enabled with signup disabled, and `GET /api/me` returns 401 without a session.
+- [ ] Validate authenticated sign-in, session cookie and sign-out with a real test account; do not mark as completed based solely on a 401 probe.
 - [ ] Set `AUTH_PUBLIC_SIGNUP=true` only after email delivery, verification, privacy policy and abuse protection have been tested.
 
 ## Render variables
@@ -30,9 +32,9 @@
 | `DATABASE_URL` | Configured | Arqvo Neon only; secret |
 | `BETTER_AUTH_SECRET` | Configured | Never in GitHub |
 | `BETTER_AUTH_URL` | Configured | https://arqvo.uorqui1.workers.dev |
-| `AUTH_ENABLED` | false | Require complete verified sender configuration before true |
+| `AUTH_ENABLED` | true | Backend enabled; signup remains disabled |
 | `AUTH_PUBLIC_SIGNUP` | false | Second explicit switch for registration |
-| `RESEND_API_KEY` | missing | Create in Resend and keep secret |
+| `RESEND_API_KEY` | Operator configured | Not visible in GitHub, Obsidian or frontend; live delivery not yet verified |
 | `RESEND_FROM_EMAIL` | Configured | `arqvo@uorqui.app`; verify sender domain in Resend dashboard |
 
 ## English / Instructions
