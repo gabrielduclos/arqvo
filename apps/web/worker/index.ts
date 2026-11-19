@@ -475,7 +475,7 @@ function explicitMoneyFilters(question: string): { min?: number; max?: number } 
 async function handleAISearch(request: Request, env: Env): Promise<Response> {
   if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
   if (!(await authorized(request, env))) return fail(401, 'unauthorized');
-  const body = await request.json().catch(() => null) as { question?: unknown } | null;
+  const body = await request.json().catch(() => null) as { question?: unknown; filters?: unknown } | null;
   const question = typeof body?.question === 'string' ? body.question.trim() : '';
   if (!question || question.length > 220) return fail(400, 'invalid_question');
   let filters: Record<string, any> | null = null;
@@ -519,6 +519,19 @@ async function handleAISearch(request: Request, env: Env): Promise<Response> {
     if (explicit.min === undefined) params.delete('amountMin');
   }
   if (params.size === 0) params.set('q', question.slice(0, 160));
+  // Explicit user-selected filters take precedence over AI guesses. Only
+  // documented keys may cross the Cloudflare -> Render boundary.
+  const permitted = new Set([
+    'merchant', 'dateStart', 'dateEnd', 'uploadStart', 'uploadEnd',
+    'amountMin', 'amountMax', 'type', 'analysis', 'sort'
+  ]);
+  if (body?.filters && typeof body.filters === 'object' && !Array.isArray(body.filters)) {
+    for (const [key, value] of Object.entries(body.filters as Record<string, unknown>)) {
+      if (permitted.has(key) && typeof value === 'string' && value.length <= 150) {
+        params.set(key, value);
+      }
+    }
+  }
   const response = await fromBackend(request, env, '/api/documents?' + params.toString());
   if (!response.ok) return json(await jsonBody(response), response.status);
   const data = await jsonBody(response);
