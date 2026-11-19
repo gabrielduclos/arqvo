@@ -46,7 +46,10 @@ const words = {
     back: 'Voltar', aiFallback: 'A IA não conseguiu interpretar os filtros. Busca textual utilizada.',
     notYet: 'Ainda não foi possível identificar dados estruturados.',
     clear: 'Limpar', aiOn: 'Busca interpretada por IA', remove: 'Excluir documento',
-    original: 'O arquivo original é preservado sem alterações.'
+    original: 'O arquivo original é preservado sem alterações.',
+    confirmAI: 'Enviar este documento para análise pela Cloudflare Workers AI? Os resultados podem conter erros.',
+    privacy: 'Privacidade e tratamento dos dados',
+    betaWarning: 'Versão beta. Evite documentos altamente sensíveis até a revisão de segurança.'
   },
   en: {
     title: 'My files', intro: 'Your real, private documents are stored here and linked only to your account.',
@@ -73,7 +76,10 @@ const words = {
     back: 'Back', aiFallback: 'AI could not interpret filters. Text search was used.',
     notYet: 'Structured fields have not been identified yet.',
     clear: 'Clear', aiOn: 'AI-interpreted search', remove: 'Delete document',
-    original: 'The original file is preserved unchanged.'
+    original: 'The original file is preserved unchanged.',
+    confirmAI: 'Send this document to Cloudflare Workers AI for analysis? Results may be inaccurate.',
+    privacy: 'Privacy and data handling',
+    betaWarning: 'Beta version. Avoid highly sensitive documents until the security review.'
   }
 };
 const MAX_BYTES = 8 * 1024 * 1024;
