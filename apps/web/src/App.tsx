@@ -19,7 +19,7 @@ const copy = {
     hero: 'Seus documentos, sempre à mão.',
     subtitle: 'Guarde notas fiscais, comprovantes e recibos. Encontre o que precisa sem procurar em pastas intermináveis.',
     step1: 'Documentos organizados', detail1: 'Guarde e consulte seus arquivos em um só lugar.',
-    step2: 'Extração automática', detail2: 'Após o upload, a IA tenta identificar estabelecimento, data e valor para facilitar a organização.',
+    step2: 'Extração automática', detail2: 'Digitalize fotos e imagens no dispositivo. A IA complementa informações que não forem reconhecidas.',
     step3: 'Busca detalhada', detail3: 'Encontre os documentos por texto, estabelecimento, categoria, data ou valor.',
     beta: 'Versão beta — mantenha uma cópia independente dos documentos importantes.',
     powered: 'Open source · Cloudflare · Render · Neon'
@@ -32,7 +32,7 @@ const copy = {
     hero: 'Every document, right where you need it.',
     subtitle: 'Keep receipts, invoices and payment records together. Find what matters without digging through folders.',
     step1: 'Organized documents', detail1: 'Store and access your documents in one place.',
-    step2: 'Automatic extraction', detail2: 'After uploading, AI looks for the merchant, date and amount to make organization easier.',
+    step2: 'Automatic extraction', detail2: 'Scan photos and images on your device. AI fills in details when local recognition is uncertain.',
     step3: 'Detailed search', detail3: 'Find documents by keyword, merchant, purchase category, date or amount.',
     beta: 'Beta release — keep an independent backup of important files.',
     powered: 'Open source · Cloudflare · Render · Neon'
