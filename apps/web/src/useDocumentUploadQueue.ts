@@ -13,7 +13,7 @@ export type QueueEntry = {
   error?: string;
   signature: string;
 };
-const MAX_SIZE = 8 * 1024 * 1024;
+const MAX_SIZE = 20 * 1024 * 1024;
 const VALID_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 const MAX_QUEUE = 30;
 const signature = (file: File) => [file.name, file.size, file.type, file.lastModified].join(':');
