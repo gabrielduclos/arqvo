@@ -4,7 +4,7 @@
 
 [UI Kit mobile-first](docs/ui-kit.pt-BR.md) · [English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
 
-O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los, inicia automaticamente a extração de dados após o upload e oferece pesquisa com inteligência artificial.
+O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los, inicia automaticamente a extração de dados após o upload e oferece uma busca textual simples com filtros avançados.
 
 **Aplicativo:** https://arqvo.uorqui1.workers.dev
 
@@ -18,7 +18,7 @@ O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas
 - Envio de PDF/JPG/PNG/WebP ao Cloudflare R2 privado, com verificação do conteúdo e limites de 8 MB por arquivo e 100 documentos por conta.
 - Download do original, prévia de imagens, listagem, pesquisa avançada (estabelecimento, datas, valores, tipo, análise e ordenação), exclusão e metadados estruturados no PostgreSQL. Informações de envio acessíveis pelo ícone ⓘ.
 - **Análise automática com IA:** após o upload, Cloudflare Workers AI tenta extrair texto e sugerir estabelecimento, data e valor em reais. Fotos JPEG/PNG/WebP usam modelo visual/OCR; o tratamento é informado antes do envio. Confira os resultados com o documento original.
-- **Busca por linguagem natural:** a IA transforma a pergunta em filtros seguros; o Neon retorna somente documentos do proprietário autenticado.
+- **Busca de documentos:** campo único de texto com filtros por estabelecimento, categoria de compra, período, valor, tipo de arquivo e situação da análise; resultados restritos à conta autenticada.
 - Interface em português/inglês, responsiva e com testes automatizados.
 
 ## Infraestrutura
@@ -27,7 +27,7 @@ O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas
 Interface React/Vite ── Cloudflare Workers Static Assets
                            ├── Proxy Better Auth ── Render Fastify ── Neon PostgreSQL
                            ├── R2 privado: arquivos originais
-                           └── Workers AI: extração após upload e pesquisa sob solicitação
+                           └── Workers AI: extração automática após upload e reanálise manual
 ```
 
 - GitHub: repositório público MIT `gabrielduclos/arqvo`, independente do Uorqui.

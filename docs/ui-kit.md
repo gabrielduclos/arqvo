@@ -19,7 +19,7 @@
 - The original 252px sidebar and hamburger drawer are **historical prototype artifacts**, explicitly superseded by the owner's mobile-first request.
 - Mobile-first content with 16px horizontal padding and extra bottom spacing so the fixed footer never obscures content. Desktop uses a centered max-width container.
 - Current Overview: simple title **without a large purple hero**; three clickable real-data KPI cards **side by side even on mobile**. Total opens all Documents, This month applies the current upload-month filter, and Data identified applies the completed-analysis filter.
-- Documents: full-width upload CTA on mobile, separate keyword/AI modes in a compact segmented switch, horizontal filter pills, touch-friendly document cards, and a mobile bottom-sheet preview.
+- Documents: full-width upload CTA on mobile, a single text search with adjacent Filters control (PDF/image selection stays in advanced filters; no AI search mode or separate pills), touch-friendly document cards, and a mobile bottom-sheet preview.
 - **Upload guidance:** the tall permanent information card was replaced with a compact circular **ⓘ** next to Documents. Tapping opens an accessible modal/bottom sheet with file format, size and automatic AI processing details.
 - Both screens use **real Neon account data only**, with an actual upload control. Preserve the visual structure without restoring static document arrays.
 
@@ -43,16 +43,21 @@ If future instructions change data flows, API, components or AI behavior, keep t
 ## Mobile-first update — November 19, 2026
 - Fixed two-tab bottom nav on mobile, top nav on desktop; no sidebar.
 - 64px mobile header, 72px desktop header, safe area footer and tap-friendly controls.
-- Compact mobile real-data overview, split search modes, scrollable filter pills, document action rows and bottom sheet.
+- Compact mobile real-data overview, single keyword search, advanced filters, document action rows and bottom sheet.
 - Inputs use 16px font size on small phones to prevent iOS focus zoom.
 
 
 ## Advanced document filters
-- **Filters** button and active-filter count are displayed **inside the search area**, next to the keyword/AI search controls, not beside the document-list heading.
+- **Filters** button and active-filter count are displayed **inside the search area**, next to the single keyword search area, not beside the document-list heading.
 - Mobile panel with merchant, PDF/image, extraction status, date range (document or upload), min/max BRL amount and sorting.
-- Combined filters execute against owner-scoped Neon queries; AI search honors explicit constraints.
+- Combined filters execute against owner-scoped Neon queries. AI-powered search and quick PDF/image pills were removed.
 
 ## Current Overview/Search interaction (November 19, 2026)
 - Remove the large Overview banner; no substitute hero card.
 - Keep Total, This month and Identified side by side, including phones, and make each open an appropriately filtered Documents view.
-- Keep Filters / Clear controls adjacent to the keyword/AI search area; the results section only shows its heading and result count.
+- Keep Filters / Clear controls adjacent to the single text-search area; the results section only shows its heading and result count.
+
+## Minimal private-status messages (November 19, 2026)
+- Remove repeated “Private · only your account” badges from Documents, Overview and document details; signed-in access is already enforced.
+- Keep the actual Privacy Policy link and the automatic AI-processing notice; neither is redundant with authentication.
+- Search has one text input and advanced Filters; no separate All/PDFs/Images pills, no AI search tab or AI search endpoint.

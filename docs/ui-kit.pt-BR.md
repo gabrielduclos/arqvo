@@ -18,7 +18,7 @@
 - O menu lateral de 252px e o hambúrguer são **referências históricas do protótipo**, expressamente substituídos a pedido do proprietário.
 - Área principal mobile-first com padding lateral de 16px no celular e espaço inferior suficiente para o footer fixo, sem encobrir documentos ou ações. Desktop com conteúdo centralizado em largura máxima.
 - Visão geral atual: título simples, **sem banner roxo grande**. Três indicadores reais ficam **lado a lado também no celular** (3 colunas) e todos são botões. Total abre Documentos sem filtros; Este mês filtra pela data de envio do mês atual; Dados identificados filtra por análise concluída. Valores vêm somente da conta autenticada.
-- Documentos: CTA de upload de largura total no celular, pesquisa normal/IA em abas compactas, filtros em pills roláveis horizontalmente, cartões com valor, status e **alvos táteis mínimos de 44px** para reanalisar/baixar/excluir. Modal de documento funciona como bottom sheet no mobile.
+- Documentos: CTA de upload de largura total no celular, uma única busca por texto com botão Filtros ao lado (PDF/imagem ficam no painel avançado, sem pills separados, e a pesquisa por IA foi removida), cartões com valor, status e **alvos táteis mínimos de 44px** para reanalisar/baixar/excluir. Modal de documento funciona como bottom sheet no mobile.
 - **Informações de upload:** o card fixo de formatos/limites/IA foi substituído por ícone circular **ⓘ** junto ao título Documentos. Toque para abrir detalhes em bottom sheet; o aviso sobre processamento com IA continua acessível.
 - Não exibir dados fictícios, mesmo usando esse protótipo como base visual.
 
@@ -40,18 +40,24 @@
 - Header de 64px no celular e 72px no desktop.
 - Footer fixo no celular com duas rotas, destaque animado via `motion/react` e safe area Android/iOS.
 - Navegação desktop no cabeçalho, menu lateral abolido.
-- Conteúdo responsivo, inputs com fonte mínima de 16px no iOS, preview em bottom sheet, painel de IA/pesquisa em abas.
+- Conteúdo responsivo, inputs com fonte mínima de 16px no iOS, preview em bottom sheet e pesquisa textual única com filtros avançados.
 - Somente documentos e métricas reais, com animações preservadas.
 
 [English](ui-kit.md)
 
 ## Filtro avançado — documentos
-- Botão **Filtros** com contador de critérios ativos **dentro da área de busca**, junto aos controles de pesquisa textual e por IA; nunca junto ao título da lista de documentos.
+- Botão **Filtros** com contador de critérios ativos **dentro da área de busca**, junto ao único campo de pesquisa textual; nunca junto ao título da lista de documentos.
 - Painel mobile com estabelecimento, tipo PDF/imagem, situação da extração, período (data de emissão ou envio), valor mínimo/máximo e ordenação.
-- Filtros combináveis consultados no Neon por proprietário; busca por IA respeita as restrições explícitas.
+- Filtros combináveis consultados no Neon por proprietário; não há pesquisa por IA nem filtros rápidos Todos/PDFs/Imagens fora do painel.
 
 ## Decisão de interface — indicadores e busca (19/11/2026)
 - Remover o banner grande de Visão geral e não substituí-lo por outro card promocional.
 - Manter os indicadores Total, Este mês e Dados identificados em 3 colunas compactas, responsivas, acessíveis e clicáveis.
 - Cada indicador navega até Documentos com o filtro real correspondente previamente aplicado.
 - Botão Filtros, contador de critérios e Limpar busca devem estar associados ao cabeçalho de **Busca e filtros**; a lista apresenta somente o título e contagem de resultados.
+
+## Interface enxuta: avisos de privacidade (19/11/2026)
+- Remover badges e mensagens repetitivos como “Privado · somente sua conta”, tanto em Documentos quanto em Visão geral e no detalhe do arquivo.
+- A autenticação permanece obrigatória; as mensagens promocionais de privacidade não devem se repetir dentro do aplicativo.
+- Manter acesso à Política de Privacidade e aviso sobre tratamento automático dos arquivos por IA; são informações legais/operacionais distintas.
+- Pesquisa documental: **um único campo de texto com Filtros avançados**, sem pills Todos/PDFs/Imagens, sem alternância Buscar/Pesquisar com IA e sem endpoint de busca por IA.

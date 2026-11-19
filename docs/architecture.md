@@ -9,7 +9,7 @@
 - **Identity/API:** Fastify on Render (`arqvo-api`) with Better Auth, email verification and owner-scoped PostgreSQL queries.
 - **Database:** independent Neon PostgreSQL `arqvo`; auth tables and additive migration [003_documents_live.sql](database/003_documents_live.sql) for `documents` and `ai_usage` (applied to Arqvo main on 2026-11-19).
 - **Original files:** R2 bucket `arqvo-documents` (private, no public hostname). Keys use an encoded account ID prefix plus a server-generated UUID.
-- **AI:** Cloudflare Workers AI binding, called automatically after successful uploads and on demand for retries or natural-language search.
+- **AI:** Cloudflare Workers AI binding, called automatically after successful uploads and on demand for document reanalysis. AI-powered document search was removed.
 
 ## Upload path
 
@@ -23,7 +23,7 @@
 ## Automatic AI flow
 
 - After a successful upload, the browser automatically requests analysis. The Worker retrieves the private document and uses Gemma 4 vision/OCR as the primary reader for JPEG/PNG/WebP (Moondream and toMarkdown as fallbacks) or `env.AI.toMarkdown()` for PDF, then a text model to suggest merchant, date and amount. Partial/empty metadata no longer sets the document to `ready`. The extracted content and suggestions are saved in Neon under the authenticated owner.
-- Natural-language search sends the question (not the complete library) to a text model. Its structured filters are sanitized and passed as parameters to owner-scoped PostgreSQL queries. Monetary amounts written explicitly as BRL in questions are independently parsed into centavos.
+- Search uses the user's keyword and explicit advanced filters, validated and parameterized in owner-scoped PostgreSQL queries. AI is used for extraction, not searching.
 - The previous app-level 8-per-account and 40-global daily AI caps were removed at the owner's request. Neon `ai_usage` is a legacy table not used for throttling; Cloudflare provider billing and limits still apply.
 - The result is best-effort. AI conversion may not understand scanned or encrypted PDFs; values must be verified against the original.
 
@@ -47,7 +47,6 @@ GET    /api/documents/:id
 GET    /api/documents/:id/file             # signed-in, privately streamed
 DELETE /api/documents/:id
 POST   /api/documents/:id/analyze          # opt-in AI
-POST   /api/ai/search                      # question -> sanitized SQL filters
 ```
 
 The first design-only migration [001_initial.sql](database/001_initial.sql) was not applied. The production documents/quotas schema is [003_documents_live.sql](database/003_documents_live.sql).

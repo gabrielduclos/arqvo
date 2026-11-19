@@ -4,7 +4,7 @@
 
 [Mobile-first UI Kit](docs/ui-kit.md) · [Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
 
-**Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, automatically attempts to extract metadata after upload, and offers AI-assisted search.
+**Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, automatically attempts to extract metadata after upload, with a single keyword search and advanced metadata filters.
 
 **Web app:** https://arqvo.uorqui1.workers.dev
 
@@ -18,7 +18,7 @@
 - Owner-scoped PDF/JPG/PNG/WebP upload to private Cloudflare R2, with magic-byte checks, 8 MB/file and 100 documents/account limits.
 - Original-file download, image preview, advanced filtering (merchant, dates, amounts, type, extraction status, sorting), deletion and structured metadata in PostgreSQL. Upload information is accessible via an ⓘ icon.
 - **Automatic AI analysis:** after each upload, Cloudflare Workers AI attempts to read the document and suggests merchant, date and amount in BRL; JPEG/PNG/WebP use a vision/OCR model. The upload screen explains this processing. AI suggestions can be wrong, so always compare them to the original.
-- **Natural-language search:** AI interprets the query into safe filters, while PostgreSQL retrieves only the signed-in user's matching documents.
+- **Document search:** one keyword search with advanced filters for merchant, purchase category, dates, amounts, file type and extraction status; matching is restricted to the signed-in user's documents.
 - Portuguese/English interface, responsive layout and automated integration tests.
 
 ## Infrastructure
@@ -27,7 +27,7 @@
 React/Vite UI ── Cloudflare Workers Static Assets
                      ├── Better Auth proxy ── Render Fastify ── Neon PostgreSQL
                      ├── Private R2 original documents
-                     └── Workers AI (automatic extraction after upload and question search)
+                     └── Workers AI (automatic document extraction after upload)
 ```
 
 - GitHub: separate public MIT repository `gabrielduclos/arqvo`.

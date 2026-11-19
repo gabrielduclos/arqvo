@@ -9,7 +9,7 @@
 - **Identidade/API:** Fastify no Render (`arqvo-api`) com Better Auth, verificação de e-mail e consultas PostgreSQL restritas ao proprietário.
 - **Banco:** Neon PostgreSQL independente `arqvo`; tabelas Better Auth e migração aditiva [003_documents_live.sql](database/003_documents_live.sql) para `documents` e `ai_usage` (aplicada à main do Arqvo em 19/11/2026).
 - **Originais:** bucket privado R2 `arqvo-documents`, sem domínio público. Chaves são prefixadas pelo ID de usuário codificado e por UUID gerado pelo serviço.
-- **IA:** binding Cloudflare Workers AI, acionado automaticamente após upload e sob solicitação para novas tentativas ou busca.
+- **IA:** binding Cloudflare Workers AI, acionado automaticamente após upload e sob solicitação para reanalisar um documento. A busca por IA foi descontinuada.
 
 ## Fluxo de upload
 
@@ -23,7 +23,7 @@
 ## Fluxo automático de IA
 
 - Após o upload, o navegador inicia a análise. O Worker busca o documento privado e usa Gemma 4 Vision como modelo principal para JPEG/PNG/WebP (com fallback Moondream/toMarkdown) ou `env.AI.toMarkdown()` para PDFs; em seguida, um modelo de texto sugere estabelecimento, data e valor. Documentos com dados incompletos não são mais marcados como `ready`. Texto e metadados são salvos no Neon, com escopo do usuário autenticado.
-- Busca em linguagem natural envia **somente a pergunta**, não toda a biblioteca, à IA. A resposta vira filtros parametrizados no PostgreSQL. Valores em reais escritos explicitamente são conferidos por um parser independente da IA.
+- Busca textual com filtros explícitos por estabelecimento, categoria, datas, valores e tipo de arquivo; os parâmetros são validados e aplicados no PostgreSQL somente à conta autenticada. A IA fica dedicada à extração dos documentos.
 - Sem cotas diárias de IA impostas pelo aplicativo: as antigas regras de 8/conta e 40/globais foram removidas. A tabela Neon `ai_usage` permanece como legado, sem bloqueio. Cotação/cobrança e cotas da Cloudflare continuam válidas.
 - Resultados são sugestões. PDFs escaneados, protegidos ou incomuns podem não ser bem interpretados.
 
@@ -47,7 +47,6 @@ GET    /api/documents/:id
 GET    /api/documents/:id/file
 DELETE /api/documents/:id
 POST   /api/documents/:id/analyze
-POST   /api/ai/search
 ```
 
 O esquema antigo [001_initial.sql](database/001_initial.sql) era apenas proposta; o esquema real aplicado é [003_documents_live.sql](database/003_documents_live.sql).
