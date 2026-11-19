@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowDownToLine, ArrowRight, CheckCircle2,
   FileImage, FilePlus2, FileText, FolderOpen, LoaderCircle,
-  LockKeyhole, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
+  Info, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
 } from 'lucide-react';
 import DocumentFilters, {
   type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
@@ -29,6 +29,7 @@ const words = {
   pt: {
     title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos reais, privados e vinculados à sua conta.',
     upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
+    uploadInfo: 'Informações do envio', uploadInfoHint: 'Formatos, limites e análise automática por IA',
     processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar automaticamente estabelecimento, data e valor. O arquivo original será preservado; confira os dados extraídos.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
@@ -59,6 +60,7 @@ const words = {
   en: {
     title: 'Documents', intro: 'Upload, search, preview and download real private documents linked to your account.',
     upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
+    uploadInfo: 'Upload information', uploadInfoHint: 'Formats, limits and automatic AI extraction',
     processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI automatically attempts to recognize the merchant, date and amount. Your original file is preserved; verify the extracted information.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
@@ -101,6 +103,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const [docs, setDocs] = useState<Document[]>([]);
   const [filters, setFilters] = useState<DocumentFilterValues>({ ...emptyDocumentFilters });
   const [showFilters, setShowFilters] = useState(false);
+  const [showUploadInfo, setShowUploadInfo] = useState(false);
   const requestSequence = useRef(0);
   const [mobileSearch, setMobileSearch] = useState<'keyword' | 'ai'>('keyword');
   const reducedMotion = useReducedMotion();
@@ -305,7 +308,14 @@ export default function VaultPanel({ language, email }: { language: Language; em
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-brand"><ShieldCheck size={15}/>{t.personal}</p>
-          <h1 className="text-[29px] font-semibold tracking-tight sm:text-4xl">{t.title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-[29px] font-semibold tracking-tight sm:text-4xl">{t.title}</h1>
+            <button type="button" aria-label={t.uploadInfo} title={t.uploadInfoHint}
+              onClick={() => setShowUploadInfo(true)}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full text-brand transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+              <Info size={20} aria-hidden="true"/>
+            </button>
+          </div>
           <p className="mt-2 text-sm text-slate-500">{t.intro}</p>
         </div>
         <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 sm:w-auto">
@@ -317,22 +327,6 @@ export default function VaultPanel({ language, email }: { language: Language; em
       </div>
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={19}/>{error}<button aria-label={t.clear} onClick={() => setError('')} className="ml-auto"><X size={18}/></button></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700"><CheckCircle2 size={19}/>{message}<button aria-label={t.clear} onClick={() => setMessage('')} className="ml-auto"><X size={18}/></button></div>}
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
-          <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><LockKeyhole size={20}/></span>
-            <div><h2 className="text-sm font-semibold">{t.drop}</h2><p className="text-xs text-slate-500">{t.formats}</p></div>
-          </div>
-          <button onClick={() => fileRef.current?.click()} disabled={busy} className="hidden min-h-11 items-center rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-brand hover:bg-indigo-50 sm:inline-flex">{t.upload}</button>
-        </div>
-        <div className="mt-5 border-t border-slate-100 pt-4">
-          <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 shrink-0 text-brand" size={19}/>
-            <div><p className="text-sm font-semibold text-slate-700">{t.analyzeAfter}</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t.aiConsent}</p></div>
-          </div>
-        </div>
-      </div>
 
       <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden" role="group"
         aria-label={language === 'pt' ? 'Modo de pesquisa' : 'Search mode'}>
@@ -438,6 +432,35 @@ export default function VaultPanel({ language, email }: { language: Language; em
       <AnimatePresence>
         {showFilters && <DocumentFilters key="document-filters" language={language} value={filters}
           onApply={applyFilters} onClose={() => setShowFilters(false)}/>}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showUploadInfo && <motion.div
+          key="upload-info" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-5"
+          onMouseDown={event => { if (event.target === event.currentTarget) setShowUploadInfo(false); }}>
+          <motion.section role="dialog" aria-modal="true" aria-labelledby="arqvo-upload-info-title"
+            initial={reducedMotion ? {} : {opacity: 0, y: 24}}
+            animate={{opacity: 1, y: 0}} exit={reducedMotion ? {} : {opacity: 0, y: 18}}
+            className="w-full max-w-[460px] rounded-t-[26px] bg-white px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] shadow-2xl sm:rounded-[26px] sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-brand">
+                <Info size={22}/>
+                <h2 id="arqvo-upload-info-title" className="text-lg font-semibold text-ink">{t.uploadInfo}</h2>
+              </div>
+              <button type="button" aria-label={t.close} onClick={() => setShowUploadInfo(false)}
+                className="flex size-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100">
+                <X size={20}/>
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-600">
+              <div><p className="font-semibold text-ink">{t.drop}</p><p className="mt-1">{t.formats}</p></div>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="flex items-center gap-2 font-semibold text-ink"><Sparkles size={17} className="text-brand"/>{t.analyzeAfter}</p>
+                <p className="mt-1">{t.aiConsent}</p>
+              </div>
+            </div>
+          </motion.section>
+        </motion.div>}
       </AnimatePresence>
 
       <AnimatePresence>
