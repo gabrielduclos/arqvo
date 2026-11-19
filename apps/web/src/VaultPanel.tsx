@@ -11,7 +11,6 @@ import DocumentFilters, {
 import { categoryLabel, categoryOptions } from './documentCategories';
 import UploadSourceModal, { type UploadSource } from './UploadSourceModal';
 import DocumentScannerModal from './DocumentScannerModal';
-import DocumentCreatorModal from './DocumentCreatorModal';
 import UploadQueuePanel from './UploadQueuePanel';
 import { useDocumentUploadQueue } from './useDocumentUploadQueue';
 
@@ -124,7 +123,6 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [showUploadInfo, setShowUploadInfo] = useState(false);
   const [showUploadSource, setShowUploadSource] = useState(false);
   const [scanFile, setScanFile] = useState<File | null>(null);
-  const [showDocumentCreator, setShowDocumentCreator] = useState(false);
   const requestSequence = useRef(0);
   const reducedMotion = useReducedMotion();
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -289,11 +287,6 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
 
   function chooseUploadSource(source: UploadSource) {
     // Picker calls must happen within the user's click, particularly on iOS Safari.
-    if (source === 'scanner') {
-      setShowUploadSource(false);
-      setShowDocumentCreator(true);
-      return;
-    }
     const input = source === 'camera' ? cameraRef.current :
       source === 'gallery' ? galleryRef.current : fileRef.current;
     input?.click();
@@ -466,14 +459,6 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
             const original = scanFile;
             setScanFile(null);
             if (original) queue.enqueue([original], { text, confidence });
-          }}/>}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showDocumentCreator && <DocumentCreatorModal language={language}
-          onClose={() => setShowDocumentCreator(false)}
-          onCreate={(file, scan) => {
-            setShowDocumentCreator(false);
-            queue.enqueue([file], scan);
           }}/>}
       </AnimatePresence>
       <AnimatePresence>
