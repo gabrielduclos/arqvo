@@ -225,26 +225,75 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
       ? body.documentDate : null;
     const amountCents = Number.isSafeInteger(body.amountCents) && body.amountCents >= 0 && body.amountCents <= 100000000000
       ? body.amountCents : null;
+    const category = typeof body.category === 'string' && DOCUMENT_CATEGORIES.has(body.category) ? body.category : null;
+    const subcategory = category && typeof body.subcategory === 'string' && body.subcategory.trim().length <= 80
+      ? body.subcategory.trim() || null : null;
     try {
       const result = await pool.query(
         `UPDATE public.documents
-         SET extracted_text=$3, merchant=$4, document_date=$5, amount_cents=$6,
+         SET extracted_text=$3,
+             merchant=CASE WHEN merchant_manual THEN merchant ELSE $4 END,
+             document_date=$5, amount_cents=$6,
+             category=CASE WHEN category_manual THEN category ELSE $7 END,
+             subcategory=CASE WHEN category_manual THEN subcategory ELSE $8 END,
              status=CASE WHEN
-               ((length(trim(coalesce($4::text,'')))>0 AND ($5::date IS NOT NULL OR $6::bigint IS NOT NULL))
-               OR ($5::date IS NOT NULL AND $6::bigint IS NOT NULL))
+               (nullif(btrim(CASE WHEN merchant_manual THEN merchant ELSE $4::text END),'') IS NOT NULL
+                AND ($5::date IS NOT NULL OR $6::bigint IS NOT NULL))
+               OR ($5::date IS NOT NULL AND $6::bigint IS NOT NULL)
                THEN 'ready' ELSE 'uploaded' END,
              updated_at=now()
          WHERE owner_uid=$1 AND id=$2
          RETURNING id, original_filename AS "filename", mime_type AS "mimeType",
-                   size_bytes AS "sizeBytes", status, merchant,
+                   size_bytes AS "sizeBytes", status, merchant, category, subcategory,
                    document_date AS "documentDate", amount_cents AS "amountCents",
                    currency, created_at AS "createdAt"`,
-        [userId, request.params.id, extractedText, merchant || null, documentDate, amountCents]
+        [userId, request.params.id, extractedText, merchant || null, documentDate, amountCents, category, subcategory]
       );
       if (!result.rowCount) return sendError(reply, 404, 'document_not_found');
       return { document: result.rows[0] };
     } catch (err) {
       request.log.error({ err }, 'Document analysis update failed');
+      return sendError(reply, 503, 'documents_unavailable');
+    }
+  });
+
+  // User corrections take precedence over future automated extraction runs.
+  app.patch('/api/documents/:id/metadata', async (request, reply) => {
+    const userId = await requireSession(request, reply);
+    if (!userId || !requireOrigin(request, reply)) return;
+    if (!UUID_RE.test(request.params.id)) return sendError(reply, 400, 'invalid_document_id');
+    const body = request.body || {};
+    if (typeof body.merchant !== 'string' || body.merchant.trim().length > 160 ||
+        typeof body.category !== 'string' ||
+        (body.category !== '' && !DOCUMENT_CATEGORIES.has(body.category)) ||
+        typeof body.subcategory !== 'string' || body.subcategory.trim().length > 80) {
+      return sendError(reply, 400, 'invalid_metadata');
+    }
+    const merchant = body.merchant.trim() || null;
+    const category = body.category || null;
+    const subcategory = category ? body.subcategory.trim() || null : null;
+    try {
+      const result = await pool.query(
+        `UPDATE public.documents
+         SET merchant=$3, category=$4, subcategory=$5,
+             merchant_manual=true, category_manual=true,
+             status=CASE WHEN
+               (nullif(btrim($3::text),'') IS NOT NULL AND
+                 (document_date IS NOT NULL OR amount_cents IS NOT NULL))
+               OR (document_date IS NOT NULL AND amount_cents IS NOT NULL)
+               THEN 'ready' ELSE 'uploaded' END,
+             updated_at=now()
+         WHERE owner_uid=$1 AND id=$2
+         RETURNING id, original_filename AS "filename", mime_type AS "mimeType",
+                   size_bytes AS "sizeBytes", status, merchant, category, subcategory,
+                   document_date AS "documentDate", amount_cents AS "amountCents",
+                   currency, created_at AS "createdAt"`,
+        [userId, request.params.id, merchant, category, subcategory]
+      );
+      if (!result.rowCount) return sendError(reply, 404, 'document_not_found');
+      return { document: result.rows[0] };
+    } catch (err) {
+      request.log.error({ err }, 'Document metadata review failed');
       return sendError(reply, 503, 'documents_unavailable');
     }
   });
