@@ -21,7 +21,7 @@ All resources are independent of the Uorqui application, except for sharing prov
 - Cloudflare Builds root: `apps/web`, build: `npm run build`, deploy: `npx wrangler deploy`.
 - Wrangler `apps/web/wrangler.jsonc` declares the private `DOCS_BUCKET`, `AI`, `ASSETS` bindings and `API_ORIGIN`. The Worker handles only `/api/*` ahead of the SPA assets.
 - Never expose Neon, R2 or Resend secrets to the browser.
-- Workers AI consumes Cloudflare account allowance and may require a paid plan/usage beyond the free allocation. The application limits inference calls.
+- Workers AI consumes Cloudflare account allowance and may require usage-based billing. No daily AI caps are currently enforced by the Arqvo application; monitor provider usage to avoid unexpected charges.
 
 ## Render API
 
@@ -63,4 +63,4 @@ CI checks run with an isolated PostgreSQL 18 instance. A read-only [production s
 
 ## Limitations
 
-The product is beta. File quota: 8 MiB each and 100 per account. AI quota: 8 requests/account/day, 40/day globally. AI output is not authoritative. Deleting a document removes metadata and attempts to remove the R2 original; if the latter fails an orphan can require cleanup. Real-world account deletion, robust storage reconciliation, backups and full privacy/security review are pending.
+The product is beta. File quota: 8 MiB each and 100 per account. No application AI daily quota; Cloudflare's service quotas and billing remain. AI output is not authoritative. Deleting a document removes metadata and attempts to remove the R2 original; if the latter fails an orphan can require cleanup. Real-world account deletion, robust storage reconciliation, backups and full privacy/security review are pending.

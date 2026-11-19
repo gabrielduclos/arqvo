@@ -18,6 +18,7 @@ Checked items reflect implemented code or verified infrastructure. / Itens marca
 - [x] Authorized image preview, original download and deletion / Prévia, download e exclusão autorizados
 - [x] Read-only unauthenticated security checks / Testes de acesso sem sessão
 - [x] Bilingual responsive document manager / Gestão de documentos responsiva e bilíngue
+- [x] Restore original UI kit and motion reference, preserved as source snapshot / Restaurar UI Kit e animações, com código original congelado
 - [x] Login page and real Overview/Documents tabs without synthetic records / Login inicial e abas Visão geral/Documentos com dados reais, sem exemplos fictícios
 - [ ] End-to-end test with real verified user and sample file / Teste completo com conta real e arquivo inofensivo
 - [ ] Mobile camera capture affordance / Acesso direto à câmera no celular
@@ -28,7 +29,8 @@ Checked items reflect implemented code or verified infrastructure. / Itens marca
 - [x] Automatic Workers AI extraction after upload / Extração automática após upload
 - [x] JPEG vision/OCR, merchant/date/amount suggestions and truthful analysis states / Modelo visual para JPEG, sugestões de dados e status fiel à extração
 - [x] Natural-language question-to-filter search, owner-scoped SQL / Pesquisa natural com filtros SQL
-- [x] Daily per-account and global usage limits / Limites de IA por conta e globais
+- [x] Remove application-level daily AI caps at owner's request / Retirar as cotas diárias de IA internas a pedido do proprietário
+- [ ] Monitor Cloudflare inference billing / Monitorar custos reais do Workers AI
 - [ ] Verify accuracy on real documents and low-quality scanned PDFs / Medir precisão com PDFs escaneados
 - [ ] Bulk asynchronous processing, retry, failure recovery / Processamento em lote e recuperação de falhas
 - [ ] Human confirmation and correction of extracted fields / Confirmação e edição dos dados sugeridos

@@ -22,9 +22,9 @@
 
 ## Fluxo automático de IA
 
-- Após o upload, o navegador inicia a análise. O Worker busca o documento privado e usa um modelo visual/OCR para imagens JPEG/PNG/WebP ou `env.AI.toMarkdown()` para PDFs; em seguida, um modelo de texto sugere estabelecimento, data e valor. Documentos com dados incompletos não são mais marcados como `ready`. Texto e metadados são salvos no Neon, com escopo do usuário autenticado.
+- Após o upload, o navegador inicia a análise. O Worker busca o documento privado e usa Gemma 4 Vision como modelo principal para JPEG/PNG/WebP (com fallback Moondream/toMarkdown) ou `env.AI.toMarkdown()` para PDFs; em seguida, um modelo de texto sugere estabelecimento, data e valor. Documentos com dados incompletos não são mais marcados como `ready`. Texto e metadados são salvos no Neon, com escopo do usuário autenticado.
 - Busca em linguagem natural envia **somente a pergunta**, não toda a biblioteca, à IA. A resposta vira filtros parametrizados no PostgreSQL. Valores em reais escritos explicitamente são conferidos por um parser independente da IA.
-- Cotas atômicas no Neon: até oito operações por conta/dia e 40 em todo o serviço/dia.
+- Sem cotas diárias de IA impostas pelo aplicativo: as antigas regras de 8/conta e 40/globais foram removidas. A tabela Neon `ai_usage` permanece como legado, sem bloqueio. Cotação/cobrança e cotas da Cloudflare continuam válidas.
 - Resultados são sugestões. PDFs escaneados, protegidos ou incomuns podem não ser bem interpretados.
 
 ## Segurança e limitações

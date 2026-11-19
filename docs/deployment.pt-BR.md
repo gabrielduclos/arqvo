@@ -21,7 +21,7 @@ Recursos isolados do aplicativo Uorqui; apenas contas dos fornecedores e domíni
 - Cloudflare Builds: raiz `apps/web`, compilação `npm run build`, publicação `npx wrangler deploy`.
 - O `apps/web/wrangler.jsonc` vincula `DOCS_BUCKET` privado, `AI`, `ASSETS` e `API_ORIGIN`. O Worker atende `/api/*` antes dos arquivos estáticos.
 - Nunca enviar chaves Neon, R2, Resend ou segredos ao navegador.
-- Workers AI possui franquias e cobrança próprias; as chamadas são limitadas pelo aplicativo.
+- Workers AI possui franquias e cobrança próprias; nenhuma cota diária é imposta pelo Arqvo nesta fase. Monitorar uso e gastos no provedor.
 
 ## API Render
 
@@ -63,4 +63,4 @@ CI utiliza PostgreSQL 18 isolado. O [smoke test de produção](../scripts/produc
 
 ## Limitações
 
-Beta. Até 8 MiB por arquivo, 100 por conta. IA: oito operações/dia por conta e 40/dia global. A extração pode errar. Exclusão remove os metadados e tenta remover o original no R2; falhas podem deixar objeto órfão para limpeza posterior. Exclusão completa da conta, backups, reconciliação de storage e revisão geral de privacidade/segurança ainda estão pendentes.
+Beta. Até 8 MiB por arquivo, 100 por conta. IA sem cota diária interna; cotas e cobrança da Cloudflare permanecem. A extração pode errar. Exclusão remove os metadados e tenta remover o original no R2; falhas podem deixar objeto órfão para limpeza posterior. Exclusão completa da conta, backups, reconciliação de storage e revisão geral de privacidade/segurança ainda estão pendentes.

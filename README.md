@@ -2,7 +2,7 @@
 
 **Your documents. Every answer.**
 
-[Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
+[UI Kit](docs/ui-kit.md) · [Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
 
 **Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, automatically attempts to extract metadata after upload, and offers AI-assisted search.
 
@@ -36,7 +36,7 @@ React/Vite UI ── Cloudflare Workers Static Assets
 
 ## Limits and unfinished work
 
-Per-user AI allowance: 8 calls/day; service-wide limit: 40/day. PDF/image text conversion is best-effort, not a guaranteed OCR transcription. General exports, account-wide deletion, automated orphan cleanup, backups, retention policies and full production security audit remain planned. Do not upload highly sensitive documents during beta. See [Privacy](PRIVACY.md).
+No application-level daily limit on AI processing; Cloudflare's provider usage quotas and billing still apply. JPEG/PNG/WebP use Gemma 4 vision as primary OCR with fallbacks. A synthetic invoice image was successfully transcribed, but actual-photo accuracy remains unverified. PDF/image extraction is best-effort, not guaranteed OCR. General exports, account-wide deletion, automated orphan cleanup, backups, retention policies and full production security audit remain planned. Do not upload highly sensitive documents during beta. See [Privacy](PRIVACY.md).
 
 ## Run locally
 

@@ -2,7 +2,7 @@
 
 **Seus documentos. Todas as respostas.**
 
-[English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
+[UI Kit original](docs/ui-kit.pt-BR.md) · [English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
 
 O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los, inicia automaticamente a extração de dados após o upload e oferece pesquisa com inteligência artificial.
 
@@ -36,7 +36,7 @@ Interface React/Vite ── Cloudflare Workers Static Assets
 
 ## Limites e pendências
 
-IA: oito operações diárias por usuário e 40 globalmente. A conversão de PDFs e imagens em texto é por melhor esforço, não OCR infalível. Exportação geral, exclusão completa da conta, limpeza automática de arquivos órfãos, backups, política de retenção e auditoria de segurança ainda não foram concluídos. Evite documentos muito sensíveis durante o beta. Consulte [Privacidade](PRIVACY.pt-BR.md).
+A IA não possui limite diário configurado pelo aplicativo; permanecem cotas e possíveis cobranças da Cloudflare. A leitura principal de JPEG/PNG/WebP usa Gemma 4 Vision com alternativas. Uma nota fiscal sintética foi transcrita corretamente em teste, mas ainda falta validar uma fotografia real. Extração de texto é por melhor esforço, não OCR infalível. Exportação geral, exclusão completa da conta, limpeza automática de arquivos órfãos, backups, política de retenção e auditoria de segurança ainda não foram concluídos. Evite documentos muito sensíveis durante o beta. Consulte [Privacidade](PRIVACY.pt-BR.md).
 
 ## Desenvolvimento local
 

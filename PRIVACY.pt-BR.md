@@ -26,7 +26,7 @@ As rotas da aplicação exigem sessão Better Auth com e-mail verificado e confe
 Os arquivos permanecem até você excluí-los. O botão de exclusão remove os metadados no PostgreSQL e tenta remover o original no R2. Se houver falha no armazenamento, pode ser necessário limpar um objeto órfão manualmente. Exclusão completa da conta, exportação geral, backups e política automática de retenção ainda estão em desenvolvimento. Não use o beta como sua única cópia de arquivos importantes.
 
 ## Limites e custos de IA
-Até 100 documentos por conta, com 8 MB por arquivo. A IA possui limite inicial de oito operações diárias por usuário e 40 no total, para controlar abusos e consumo.
+Até 100 documentos por conta, com 8 MB por arquivo. Atualmente, o Arqvo não aplica limite diário de chamadas de IA. A Cloudflare pode impor cotas próprias e cobrar pelo consumo. A análise é automática após upload e os valores financeiros devem ser conferidos.
 
 ## Solicitações e incidentes
 Para solicitações de privacidade ou exclusão, utilize um **canal privado** indicado no perfil do mantenedor em https://github.com/gabrielduclos. **Nunca** publique documentos financeiros, senhas, tokens ou dados pessoais em issues públicas.

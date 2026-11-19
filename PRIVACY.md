@@ -26,7 +26,7 @@ Application routes use a verified Better Auth session and check the account owne
 Documents remain until you delete them. The delete action removes PostgreSQL metadata and attempts to delete the corresponding R2 original. In case of storage failure, a detached object may require operator cleanup. Account deletion, full data export, backups and automated retention policies are still being developed. Do not treat the beta as your only archival copy.
 
 ## Limits and AI costs
-Up to 100 documents per account, maximum 8 MB each, with a limited number of AI requests per day (currently eight per account and 40 across the service). Limits are intended to reduce abuse and uncontrolled inference usage.
+Up to 100 documents per account, maximum 8 MB each. Arqvo currently does not enforce an application daily AI call limit. Cloudflare may enforce provider quotas and charge for AI usage. AI processing is automatic after upload; check extracted financial values.
 
 ## Requests and incidents
 For privacy or deletion requests, use a **private channel** provided by the repository owner through their GitHub profile: https://github.com/gabrielduclos. **Never** post financial documents, personal details, passwords or access tokens in public GitHub issues.

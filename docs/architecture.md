@@ -22,9 +22,9 @@
 
 ## Automatic AI flow
 
-- After a successful upload, the browser automatically requests analysis. The Worker retrieves the private document and uses a Cloudflare vision/OCR model for JPEG/PNG/WebP or `env.AI.toMarkdown()` for PDF, then a text model to suggest merchant, date and amount. Partial/empty metadata no longer sets the document to `ready`. The extracted content and suggestions are saved in Neon under the authenticated owner.
+- After a successful upload, the browser automatically requests analysis. The Worker retrieves the private document and uses Gemma 4 vision/OCR as the primary reader for JPEG/PNG/WebP (Moondream and toMarkdown as fallbacks) or `env.AI.toMarkdown()` for PDF, then a text model to suggest merchant, date and amount. Partial/empty metadata no longer sets the document to `ready`. The extracted content and suggestions are saved in Neon under the authenticated owner.
 - Natural-language search sends the question (not the complete library) to a text model. Its structured filters are sanitized and passed as parameters to owner-scoped PostgreSQL queries. Monetary amounts written explicitly as BRL in questions are independently parsed into centavos.
-- Quotas are enforced using an atomic Neon table: 8 calls/account/day and 40 across all accounts/day.
+- The previous app-level 8-per-account and 40-global daily AI caps were removed at the owner's request. Neon `ai_usage` is a legacy table not used for throttling; Cloudflare provider billing and limits still apply.
 - The result is best-effort. AI conversion may not understand scanned or encrypted PDFs; values must be verified against the original.
 
 ## Security
