@@ -9,6 +9,7 @@ import DocumentFilters, {
   type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
 } from './DocumentFilters';
 import { categoryLabel, categoryOptions } from './documentCategories';
+import UploadSourceModal, { type UploadSource } from './UploadSourceModal';
 
 type Language = 'pt' | 'en';
 type DocumentView = 'all' | 'month' | 'identified';
@@ -111,10 +112,13 @@ async function parse(response: Response): Promise<Result> {
 export default function VaultPanel({ language, email, initialView = 'all' }: { language: Language; email: string; initialView?: DocumentView }) {
   const t = words[language];
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Document[]>([]);
   const [filters, setFilters] = useState<DocumentFilterValues>(() => presetFilters(initialView));
   const [showFilters, setShowFilters] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(false);
+  const [showUploadSource, setShowUploadSource] = useState(false);
   const requestSequence = useRef(0);
   const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
@@ -299,8 +303,27 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
       setError(cause instanceof Error ? cause.message : t.error);
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = '';
+      for (const input of [fileRef.current, cameraRef.current, galleryRef.current]) {
+        if (input) input.value = '';
+      }
     }
+  }
+
+  function chooseUploadSource(source: UploadSource) {
+    if (busy) return;
+    // Must be invoked synchronously from the button's real click event:
+    // iOS Safari and Android browsers require a user gesture to open pickers.
+    const input = source === 'camera' ? cameraRef.current :
+      source === 'gallery' ? galleryRef.current : fileRef.current;
+    input?.click();
+    setShowUploadSource(false);
+  }
+
+  function onFilePicked(event: React.ChangeEvent<HTMLInputElement>) {
+    const picked = event.currentTarget.files?.[0];
+    // Allow users to select the same file again after upload/cancellation.
+    event.currentTarget.value = '';
+    if (picked) void upload(picked);
   }
 
   async function remove(doc: Document) {
@@ -338,12 +361,24 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           </div>
           <p className="mt-2 text-sm text-slate-500">{t.intro}</p>
         </div>
-        <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 sm:w-auto">
+        <button type="button" onClick={() => setShowUploadSource(true)} disabled={busy}
+          aria-haspopup="dialog"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 sm:w-auto">
           {busy ? <LoaderCircle size={17} className="animate-spin"/> : <FilePlus2 size={17}/>}
           {busy ? t.processing : t.upload}
         </button>
-        <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-          onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
+        {/* The three native pickers remain mounted outside the dialog. The
+            initial selection is ours; the OS handles capture and file access. */}
+        <input ref={cameraRef} type="file" className="hidden" tabIndex={-1}
+          aria-label={language === 'pt' ? 'Fotografar documento' : 'Take a document photo'}
+          accept="image/*" capture="environment" onChange={onFilePicked}/>
+        <input ref={galleryRef} type="file" className="hidden" tabIndex={-1}
+          aria-label={language === 'pt' ? 'Escolher imagem da galeria' : 'Choose photo from gallery'}
+          accept="image/jpeg,image/png,image/webp" onChange={onFilePicked}/>
+        <input ref={fileRef} type="file" className="hidden" tabIndex={-1}
+          aria-label={language === 'pt' ? 'Selecionar arquivo' : 'Choose file'}
+          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+          onChange={onFilePicked}/>
       </div>
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={19}/>{error}<button aria-label={t.clear} onClick={() => setError('')} className="ml-auto"><X size={18}/></button></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700"><CheckCircle2 size={19}/>{message}<button aria-label={t.clear} onClick={() => setMessage('')} className="ml-auto"><X size={18}/></button></div>}
@@ -434,6 +469,10 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
         <a className="mt-2 inline-block text-xs font-semibold text-brand underline" href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'} target="_blank" rel="noreferrer">{t.privacy}</a>
       </div>
 
+      <AnimatePresence>
+        {showUploadSource && <UploadSourceModal key="choose-upload-source" language={language}
+          onSelect={chooseUploadSource} onClose={() => setShowUploadSource(false)}/>}
+      </AnimatePresence>
       <AnimatePresence>
         {showFilters && <DocumentFilters key="document-filters" language={language} value={filters}
           onApply={applyFilters} onClose={() => setShowFilters(false)}/>}
