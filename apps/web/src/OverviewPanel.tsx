@@ -25,7 +25,7 @@ const labels = {
     seeAll: 'Ver documentos', retry: 'Tentar novamente', failed: 'Não foi possível carregar seu resumo.',
     identifiedHint: 'Com metadados reconhecidos', incompleteHint: 'Sem informações suficientes', month: 'Este mês',
     fieldNone: 'Dados ainda não identificados', processed: 'Dados identificados', partial: 'Identificação parcial', pending: 'Aguardando análise',
-    privacy: 'Somente documentos da sua conta são incluídos neste painel.',
+
 
   },
   en: {
@@ -37,7 +37,7 @@ const labels = {
     add: 'Add document', seeAll: 'Browse documents', retry: 'Try again', failed: 'Could not load your document summary.',
     identifiedHint: 'With recognized metadata', incompleteHint: 'Without sufficient details', month: 'This month',
     fieldNone: 'Data not yet identified', processed: 'Data identified', partial: 'Partial identification', pending: 'Waiting for analysis',
-    privacy: 'This overview only includes documents owned by your account.',
+
 
   }
 };
@@ -102,7 +102,7 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
       : <>
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {[
-            { label: t.documents, short: t.documentsShort, value: String(docs.length).padStart(2, '0'), hint: t.privacy, icon: FileText, view: 'all' },
+            { label: t.documents, short: t.documentsShort, value: String(docs.length).padStart(2, '0'), hint: t.filterHint, icon: FileText, view: 'all' },
             { label: t.thisMonth, short: t.thisMonthShort, value: String(overview.countThisMonth).padStart(2, '0'), hint: t.month, icon: CalendarDays, view: 'month' },
             { label: t.identified, short: t.identifiedShort, value: String(overview.identified).padStart(2, '0'), hint: t.identifiedHint, icon: CircleCheck, view: 'identified' }
           ].map(({label, short, value, hint, icon: Icon, view}) => (
@@ -147,7 +147,6 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
             <ArrowRight size={17} className="hidden shrink-0 text-slate-300 sm:block"/>
           </button>)}
         </div>
-        <p className="text-xs text-slate-400">{t.privacy}</p>
       </>}
   </section>;
 }

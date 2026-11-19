@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  AlertCircle, ArrowDownToLine, ArrowRight, CheckCircle2,
+  AlertCircle, ArrowDownToLine, CheckCircle2,
   FileImage, FilePlus2, FileText, FolderOpen, LoaderCircle,
-  Info, Pencil, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
+  Info, Pencil, Search, SlidersHorizontal, Sparkles, Trash2, X
 } from 'lucide-react';
 import DocumentFilters, {
   type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
@@ -44,15 +44,13 @@ type Result = { documents?: Document[]; document?: Document; error?: string; aiU
 
 const words = {
   pt: {
-    title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos reais, privados e vinculados à sua conta.',
+    title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos.',
     upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
     uploadInfo: 'Informações do envio', uploadInfoHint: 'Formatos, limites e análise automática por IA',
     processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar estabelecimento, data, valor e categoria conforme os itens comprados. O arquivo original será preservado; confira os resultados.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
-    find: 'Buscar', searchAndFilters: 'Busca e filtros', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.', aiQuestion: 'Pergunte à IA sobre seus documentos',
-    aiPlaceholder: 'Ex.: notas da farmácia acima de 100 reais', askAI: 'Pesquisar com IA',
-    searchAIInfo: 'A IA interpreta sua pergunta, mas os resultados vêm apenas dos seus documentos. A pergunta é enviada à Cloudflare AI.',
+    find: 'Buscar', searchAndFilters: 'Busca e filtros', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.',
     searching: 'Pesquisando…', scanned: 'Dados identificados', pending: 'Aguardando análise', partial: 'Dados parciais', textOnly: 'Texto extraído, sem dados identificados', extracting: 'Processando com IA…', noFields: 'O texto foi extraído, mas a IA não conseguiu identificar estabelecimento, data ou valor. Você pode tentar novamente.', partialFields: 'Extração parcial: confira e complete os dados pelo documento original.',
     analyze: 'Extrair dados com IA', analyzing: 'Extraindo…', download: 'Baixar original', preview: 'Visualizar arquivo',
     delete: 'Excluir', confirmDelete: 'Excluir permanentemente este documento? Esta ação não pode ser desfeita.',
@@ -65,26 +63,22 @@ const words = {
     merchant: 'Estabelecimento', category: 'Categoria', subcategory: 'Subcategoria', amount: 'Valor', date: 'Data', format: 'Formato',
     editMetadata: 'Corrigir dados', saveMetadata: 'Salvar alterações', cancelEdit: 'Cancelar', savedMetadata: 'Informações atualizadas. Suas correções serão mantidas mesmo após nova análise.', unknownCategory: 'Não classificado',
     source: 'Arquivo original', close: 'Fechar', selected: 'Detalhes do documento', ocrText: 'Texto reconhecido na nota fiscal', ocrEmpty: 'Nenhum texto legível; tente uma foto mais nítida.',
-    personal: 'Privado · somente sua conta', noAI: 'A análise acontece após o upload; você pode tentar novamente se faltarem informações.',
+    noAI: 'A análise acontece após o upload; você pode tentar novamente se faltarem informações.',
     billing: 'A IA pode consumir recursos da Cloudflare; os resultados devem ser conferidos.',
-    back: 'Voltar', aiFallback: 'A IA não conseguiu interpretar os filtros. Busca textual utilizada.',
     notYet: 'Ainda não foi possível identificar dados estruturados.',
-    clear: 'Limpar', aiOn: 'Busca interpretada por IA', remove: 'Excluir documento',
     original: 'O arquivo original é preservado sem alterações.',
     confirmAI: 'Enviar este documento para análise pela Cloudflare Workers AI? Os resultados podem conter erros.',
     privacy: 'Privacidade e tratamento dos dados',
     betaWarning: 'Versão beta. Evite documentos altamente sensíveis até a revisão de segurança.'
   },
   en: {
-    title: 'Documents', intro: 'Upload, search, preview and download real private documents linked to your account.',
+    title: 'Documents', intro: 'Upload, search, preview and download your documents.',
     upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
     uploadInfo: 'Upload information', uploadInfoHint: 'Formats, limits and automatic AI extraction',
     processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI attempts to identify the merchant, date, amount and category based on the purchased items. The original remains preserved; verify the results.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
-    find: 'Search', searchAndFilters: 'Search and filters', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.', aiQuestion: 'Ask AI about your documents',
-    aiPlaceholder: 'e.g., pharmacy invoices over R$ 100', askAI: 'AI search',
-    searchAIInfo: 'AI interprets your question, but matches come only from your documents. Your question is sent to Cloudflare AI.',
+    find: 'Search', searchAndFilters: 'Search and filters', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.',
     searching: 'Searching…', scanned: 'Data identified', pending: 'Waiting for analysis', partial: 'Partial data', textOnly: 'Text extracted, details not identified', extracting: 'Analyzing with AI…', noFields: 'Text was extracted, but the AI could not identify a merchant, date or amount. You can try again.', partialFields: 'Partial extraction: check the original for missing details.',
     analyze: 'Extract with AI', analyzing: 'Extracting…', download: 'Download original', preview: 'Preview file',
     delete: 'Delete', confirmDelete: 'Permanently delete this document? This cannot be undone.',
@@ -97,11 +91,9 @@ const words = {
     merchant: 'Merchant', category: 'Category', subcategory: 'Subcategory', amount: 'Amount', date: 'Date', format: 'Format',
     editMetadata: 'Correct details', saveMetadata: 'Save changes', cancelEdit: 'Cancel', savedMetadata: 'Details updated. Your corrections are retained after future AI analysis.', unknownCategory: 'Uncategorized',
     source: 'Original file', close: 'Close', selected: 'Document details', ocrText: 'Recognized invoice text', ocrEmpty: 'No readable text; try a sharper photo.',
-    personal: 'Private · only your account', noAI: 'Analysis starts after upload. Retry if details are missing.',
+    noAI: 'Analysis starts after upload. Retry if details are missing.',
     billing: 'AI processing uses Cloudflare resources; always verify extracted values.',
-    back: 'Back', aiFallback: 'AI could not interpret filters. Text search was used.',
     notYet: 'Structured fields have not been identified yet.',
-    clear: 'Clear', aiOn: 'AI-interpreted search', remove: 'Delete document',
     original: 'The original file is preserved unchanged.',
     confirmAI: 'Send this document to Cloudflare Workers AI for analysis? Results may be inaccurate.',
     privacy: 'Privacy and data handling',
@@ -124,7 +116,6 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [showFilters, setShowFilters] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(false);
   const requestSequence = useRef(0);
-  const [mobileSearch, setMobileSearch] = useState<'keyword' | 'ai'>('keyword');
   const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -136,9 +127,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
-  const [aiQuestion, setAiQuestion] = useState('');
-  const [aiSearch, setAiSearch] = useState(false);
-  const [mode, setMode] = useState<'all' | 'keyword' | 'ai'>(initialView === 'all' ? 'all' : 'keyword');
+  const [mode, setMode] = useState<'all' | 'keyword'>(initialView === 'all' ? 'all' : 'keyword');
   const [loading, setLoading] = useState(true);
 
   const date = (raw: string | null) => {
@@ -189,7 +178,6 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     setFilters(next);
     setMode(initialView === 'all' ? 'all' : 'keyword');
     setSearch('');
-    setAiQuestion('');
     void refresh('', next);
   }, [email, initialView]);
 
@@ -205,16 +193,11 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     const cleared = { ...emptyDocumentFilters };
     setFilters(cleared);
     setSearch('');
-    setAiQuestion('');
     setMode('all');
     setShowFilters(false);
     void refresh('', cleared);
   }
 
-  function quickType(kind: DocumentFilterValues['type']) {
-    const next = { ...filters, type: kind };
-    applyFilters(next);
-  }
   useEffect(() => {
     setEditingMetadata(false);
     setMetadataDraft({
@@ -340,38 +323,11 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     void refresh(search.trim(), filters);
   }
 
-  async function searchWithAI(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!aiQuestion.trim() || aiSearch) return;
-    setAiSearch(true); setError(''); setMessage('');
-    const requestId = ++requestSequence.current;
-    try {
-      const response = await fetch('/api/ai/search', {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: aiQuestion.trim(),
-          filters: Object.fromEntries(buildDocumentQuery(filters).entries())
-        }),
-        signal: AbortSignal.timeout(60000)
-      });
-      const body = await parse(response);
-      if (!response.ok) throw new Error(problem(body.error));
-      if (requestId === requestSequence.current) {
-        setDocs(body.documents || []);
-        setMode('ai');
-        setMessage(body.aiUsed ? t.aiOn : t.aiFallback);
-      }
-    } catch (cause) {
-      if (requestId === requestSequence.current) setError(cause instanceof Error ? cause.message : t.error);
-    } finally { setAiSearch(false); }
-  }
 
   return (
     <section className="min-w-0 space-y-5 sm:space-y-7">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-brand"><ShieldCheck size={15}/>{t.personal}</p>
           <div className="flex items-center gap-2">
             <h1 className="text-[29px] font-semibold tracking-tight sm:text-4xl">{t.title}</h1>
             <button type="button" aria-label={t.uploadInfo} title={t.uploadInfoHint}
@@ -408,45 +364,19 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           </button>
         </div>
       </div>
-      <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden" role="group"
-        aria-label={language === 'pt' ? 'Modo de pesquisa' : 'Search mode'}>
-        <button type="button" onClick={() => setMobileSearch('keyword')}
-          className={'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ' +
-            (mobileSearch === 'keyword' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
-          <Search size={17}/>{t.find}
-        </button>
-        <button type="button" onClick={() => setMobileSearch('ai')}
-          className={'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ' +
-            (mobileSearch === 'ai' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
-          <Sparkles size={17}/>{t.askAI}
-        </button>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
-        <form onSubmit={searchText} className={"min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 " + (mobileSearch === "keyword" ? "block" : "hidden lg:block")}>
-          <div className="flex items-center gap-2"><Search className="text-brand" size={20}/><h2 className="text-sm font-semibold">{t.query}</h2></div>
-          <div className="mt-4 flex min-w-0 gap-2"><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t.queryPlaceholder}
-            className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm"/>
-            <button type="submit" className="min-h-12 shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
-          </div>
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 sm:mt-5 sm:flex-wrap" aria-label={language === 'pt' ? 'Tipo de documento' : 'Document type'}>
-            {(['all', 'pdf', 'image'] as const).map(kind => <button key={kind} type="button" onClick={() => quickType(kind)}
-              className={'min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ' + (filters.type === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
-              {kind === 'all' ? t.all : kind === 'pdf' ? t.pdf : t.images}
-            </button>)}
-          </div>
-        </form>
-        <form onSubmit={searchWithAI} className={"min-w-0 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 sm:p-5 " + (mobileSearch === "ai" ? "block" : "hidden lg:block")}>
-          <div className="flex items-center gap-2"><Sparkles className="text-brand" size={20}/><h2 className="text-sm font-semibold">{t.aiQuestion}</h2></div>
-          <div className="mt-4 flex min-w-0 gap-2"><input value={aiQuestion} maxLength={220} onChange={e => setAiQuestion(e.target.value)} placeholder={t.aiPlaceholder}
-            className="min-h-12 min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm"/>
-            <button type="submit" disabled={aiSearch || !aiQuestion.trim()} aria-label={t.askAI} className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              {aiSearch ? <LoaderCircle size={16} className="animate-spin"/> : <ArrowRight size={16}/>}
-              <span className="hidden sm:inline">{t.askAI}</span>
-            </button>
-          </div>
-          <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.searchAIInfo}</p>
-        </form>
-      </div>
+      <form onSubmit={searchText} role="search"
+        className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <label htmlFor="arqvo-document-search" className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Search size={19} className="text-brand" aria-hidden="true"/>{t.query}
+        </label>
+        <div className="mt-3 flex min-w-0 gap-2">
+          <input id="arqvo-document-search" type="search" value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder={t.queryPlaceholder}
+            className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm"/>
+          <button type="submit" className="min-h-12 shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
+        </div>
+      </form>
 
       <div>
         <div className="mb-4">
@@ -544,7 +474,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
         onMouseDown={e => {if (e.target === e.currentTarget) setSelected(null);}}>
         <motion.div role="dialog" aria-modal="true" aria-label={t.selected} className="max-h-[92dvh] w-full max-w-[540px] overflow-y-auto overscroll-contain rounded-t-[28px] bg-white px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] shadow-2xl sm:max-h-[90vh] sm:rounded-[26px] sm:p-8"
           initial={reducedMotion ? {} : {opacity: 0, y: 30}} animate={{opacity: 1, y: 0}} exit={reducedMotion ? {} : {opacity: 0, y: 20}}>
-          <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-brand">{t.personal}</span><button aria-label={t.close} onClick={() => setSelected(null)} className="flex size-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><X size={20}/></button></div>
+          <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-brand">{t.selected}</span><button aria-label={t.close} onClick={() => setSelected(null)} className="flex size-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><X size={20}/></button></div>
           <div className="mt-4 flex h-56 flex-col items-center justify-center sm:mt-5 sm:h-48 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50">
             {selected.mimeType.startsWith('image/') ? <img className="h-full w-full object-contain" alt={selected.filename} src={fileLink(selected.id)}/>
               : <><FileText size={42} className="text-brand"/><span className="mt-3 text-xs text-slate-500">PDF</span></>}
