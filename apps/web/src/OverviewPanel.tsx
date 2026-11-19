@@ -91,17 +91,17 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
     return { text: t.pending, tone: 'text-slate-500 bg-slate-100' };
   };
 
-  return <section className="space-y-8">
-    <div className="relative overflow-hidden rounded-[28px] bg-[#201d42] px-7 py-9 text-white sm:px-10 sm:py-12">
+  return <section className="space-y-5 sm:space-y-7">
+    <div className="relative overflow-hidden rounded-[24px] bg-[#201d42] px-5 py-7 text-white sm:rounded-[28px] sm:px-10 sm:py-12">
       <div className="absolute -right-12 -top-24 size-64 rounded-full bg-indigo-500/30 blur-3xl" aria-hidden="true"/>
       <div className="absolute -bottom-24 right-28 size-56 rounded-full bg-violet-400/20 blur-3xl" aria-hidden="true"/>
       <div className="relative z-10 max-w-[590px]">
-        <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-indigo-100"><Sparkles size={14}/>{t.tag}</span>
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-[44px]">{t.title}</h1>
-        <p className="mt-4 max-w-[460px] text-sm leading-relaxed text-indigo-100/85 sm:text-base">{t.subtitle}</p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <button onClick={onOpenDocuments} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#28224c] transition hover:bg-indigo-50"><FolderOpen size={17}/>{t.seeAll}</button>
-          <button onClick={onOpenDocuments} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><ArrowRight size={17}/>{t.add}</button>
+        <span className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-indigo-100"><Sparkles size={14}/>{t.tag}</span>
+        <h1 className="text-[29px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]">{t.title}</h1>
+        <p className="mt-3 max-w-[460px] text-[13px] leading-6 text-indigo-100/85 sm:text-base">{t.subtitle}</p>
+        <div className="mt-6 flex flex-wrap gap-3 sm:mt-7">
+          <button onClick={onOpenDocuments} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 sm:w-auto text-sm font-semibold text-[#28224c] transition hover:bg-indigo-50"><FolderOpen size={17}/>{t.seeAll}</button>
+          <button onClick={onOpenDocuments} className="hidden items-center gap-2 rounded-xl border border-white/25 sm:inline-flex px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"><ArrowRight size={17}/>{t.add}</button>
         </div>
       </div>
     </div>
@@ -109,28 +109,28 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
     {loading ? <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white"><LoaderCircle className="animate-spin text-brand" size={27}/></div>
       : error ? <div role="alert" className="rounded-2xl border border-slate-200 bg-white p-8 text-center"><p className="text-sm text-slate-600">{t.failed}</p><button onClick={() => setReload(v => v + 1)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white"><RefreshCw size={15}/>{t.retry}</button></div>
       : <>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           {[
             { label: t.documents, value: String(docs.length).padStart(2, '0'), hint: t.privacy, icon: FileText },
             { label: t.thisMonth, value: String(overview.countThisMonth).padStart(2, '0'), hint: t.month, icon: CalendarDays },
             { label: t.identified, value: String(overview.identified).padStart(2, '0'), hint: t.identifiedHint, icon: CircleCheck }
-          ].map(({label, value, hint, icon: Icon}) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          ].map(({label, value, hint, icon: Icon}) => <div key={label} className={"min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 " + (label === t.identified ? "col-span-2 sm:col-span-1" : "")}>
             <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><Icon size={20}/></span>
-            <p className="mt-5 text-xs font-medium text-slate-500">{label}</p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">{hint}</p>
+            <p className="mt-3 min-h-8 text-xs font-medium leading-4 text-slate-500 sm:mt-5 sm:min-h-0">{label}</p>
+            <p className="mt-1 text-[27px] font-semibold tracking-tight tabular-nums sm:text-3xl">{value}</p>
+            <p className="mt-1 hidden text-xs leading-relaxed text-slate-400 sm:mt-2 sm:block">{hint}</p>
           </div>)}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1.3fr_1fr]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><Wallet size={20}/></span>
               <div><h2 className="text-sm font-semibold">{t.amount}</h2><p className="mt-1 text-xs text-slate-400">{overview.valuedCount} / {docs.length} {t.documents.toLowerCase()} · {overview.partial} {t.incomplete.toLowerCase()}</p></div>
             </div>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{money.format(overview.cents / 100)}</p>
+            <p className="mt-4 break-words text-[28px] font-semibold tracking-tight tabular-nums sm:text-3xl">{money.format(overview.cents / 100)}</p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.amountNote}</p>
           </div>
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-6">
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:p-6">
             <span className="flex size-10 items-center justify-center rounded-xl bg-white text-brand"><Sparkles size={20}/></span>
             <h2 className="mt-4 text-sm font-semibold">{t.ai}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">{t.aiDesc}</p>
@@ -139,21 +139,21 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
             <h2 className="text-lg font-semibold">{t.recent}</h2>
             <button onClick={onOpenDocuments} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
           </div>
-          {!docs.length ? <div className="px-6 py-14 text-center">
+          {!docs.length ? <div className="px-5 py-12 text-center sm:px-6 sm:py-14">
             <FolderOpen className="mx-auto text-indigo-300" size={35}/>
             <h3 className="mt-3 text-sm font-semibold">{t.noDocs}</h3>
             <p className="mt-1 text-sm text-slate-500">{t.noDocsDescription}</p>
           </div> : docs.slice(0, 5).map((doc, i) => <button key={doc.id} onClick={onOpenDocuments}
-            className={'flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-indigo-50/60 ' + (i ? 'border-t border-slate-100' : '')}>
+            className={'flex w-full min-w-0 items-center gap-3 px-4 py-4 text-left transition sm:gap-4 sm:px-5 hover:bg-indigo-50/60 ' + (i ? 'border-t border-slate-100' : '')}>
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-brand">{doc.mimeType === 'application/pdf' ? <FileText size={21}/> : <FileImage size={21}/>}</span>
             <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{doc.filename}</span><span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)}</span></span>
             <span className={'hidden shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold sm:inline-flex ' + status(doc).tone}>{status(doc).text}</span>
-            <span className="shrink-0 text-right text-sm font-semibold">{doc.amountCents === null || doc.amountCents === undefined ? '—' : money.format(Number(doc.amountCents) / 100)}</span>
-            <ArrowRight size={17} className="shrink-0 text-slate-300"/>
+            <span className="max-w-[95px] shrink-0 text-right text-xs font-semibold tabular-nums sm:max-w-none sm:text-sm">{doc.amountCents === null || doc.amountCents === undefined ? '—' : money.format(Number(doc.amountCents) / 100)}</span>
+            <ArrowRight size={17} className="hidden shrink-0 text-slate-300 sm:block"/>
           </button>)}
         </div>
         <p className="text-xs text-slate-400">{t.privacy}</p>
