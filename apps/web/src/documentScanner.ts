@@ -59,9 +59,52 @@ async function renderImage(file: File, options: ScanOptions, maxSide: number, cr
   }
 }
 
-export async function scanPreview(file: File, options: ScanOptions): Promise<string> {
+// Suggest a crop only if a large, clearly contrasting page stands out from
+// the corner background. On ambiguous images leave the full frame intact.
+function suggestDocumentCrop(canvas: HTMLCanvasElement): ScanCrop | null {
+  const w = canvas.width, h = canvas.height;
+  if (w < 100 || h < 100) return null;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const pixels = ctx.getImageData(0, 0, w, h).data;
+  const sample = (x: number, y: number) => {
+    const i = (Math.round(y) * w + Math.round(x)) * 4;
+    return [pixels[i], pixels[i + 1], pixels[i + 2]];
+  };
+  const corners = [
+    sample(w * .02, h * .02), sample(w * .98, h * .02),
+    sample(w * .02, h * .98), sample(w * .98, h * .98)
+  ];
+  const background = [0, 1, 2].map(index =>
+    corners.reduce((sum, color) => sum + color[index], 0) / 4
+  );
+  const step = Math.max(2, Math.floor(Math.max(w, h) / 350));
+  let total = 0, found = 0, minX = w, minY = h, maxX = 0, maxY = 0;
+  for (let y = step; y < h - step; y += step) {
+    for (let x = step; x < w - step; x += step) {
+      total++;
+      const pixel = sample(x, y);
+      const difference = pixel.reduce((sum, value, index) => sum + Math.abs(value - background[index]), 0) / 3;
+      if (difference < 58) continue;
+      found++;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+  }
+  const coverage = found / Math.max(1, total);
+  if (coverage < .24 || coverage > .88) return null;
+  const pad = Math.round(Math.min(w, h) * .02);
+  minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+  maxX = Math.min(w, maxX + pad); maxY = Math.min(h, maxY + pad);
+  if ((maxX - minX) / w < .35 || (maxY - minY) / h < .35) return null;
+  const bounds = { x: minX / w, y: minY / h, width: (maxX - minX) / w, height: (maxY - minY) / h };
+  if (bounds.width > .97 && bounds.height > .97) return null;
+  return bounds;
+}
+
+export async function scanPreview(file: File, options: ScanOptions): Promise<{ src: string; suggestedCrop: ScanCrop | null }> {
   const canvas = await renderImage(file, options, 1100, false);
-  return canvas.toDataURL('image/jpeg', 0.82);
+  return { src: canvas.toDataURL('image/jpeg', 0.82), suggestedCrop: suggestDocumentCrop(canvas) };
 }
 
 export async function readScan(
