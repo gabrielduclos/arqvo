@@ -19,6 +19,8 @@ test('Better Auth verified-email signup, login, session and logout with local Po
     await pool.query(schema);
     const documentsSchema = await readFile(new URL('../../../docs/database/003_documents_live.sql', import.meta.url), 'utf8');
     await pool.query(documentsSchema);
+    const categoriesSchema = await readFile(new URL('../../../docs/database/004_document_categories.sql', import.meta.url), 'utf8');
+    await pool.query(categoriesSchema);
 
     let resolveMail;
     const mailbox = new Promise(resolve => { resolveMail = resolve; });
@@ -115,12 +117,14 @@ test('Better Auth verified-email signup, login, session and logout with local Po
         payload: {
           extractedText: 'Farmácia Central 20 de novembro total 85 reais',
           merchant: 'Farmácia Central', documentDate: '2026-11-20',
-          amountCents: 8500
+          amountCents: 8500, category: 'farmacia', subcategory: 'Medicamentos'
         }
       });
       assert.equal(analyzed.statusCode, 200, analyzed.body);
       assert.equal(Number(analyzed.json().document.amountCents), 8500);
       assert.equal(analyzed.json().document.status, 'ready');
+      assert.equal(analyzed.json().document.category, 'farmacia');
+      assert.equal(analyzed.json().document.subcategory, 'Medicamentos');
       const searched = await app.inject({
         method: 'GET', url: '/api/documents?q=farmácia',
         headers: { cookie }
@@ -139,6 +143,12 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       assert.equal(complete.statusCode, 200, complete.body);
       assert.deepEqual(complete.json().documents.map(doc => doc.id), [id]);
       assert.equal(complete.json().documents[0].analysisState, 'ready');
+      const pharmacyDocs = await filtered('category=farmacia');
+      assert.equal(pharmacyDocs.statusCode, 200, pharmacyDocs.body);
+      assert.ok(pharmacyDocs.json().documents.some(doc => doc.id === id));
+      const wrongCategory = await filtered('category=combustivel');
+      assert.equal(wrongCategory.statusCode, 200, wrongCategory.body);
+      assert.ok(!wrongCategory.json().documents.some(doc => doc.id === id));
 
       const uploadedToday = new Date().toISOString().slice(0, 10);
       const uploadDates = await filtered('uploadStart=' + uploadedToday + '&uploadEnd=' + uploadedToday + '&sort=oldest');
@@ -156,7 +166,7 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       for (const invalid of [
         'sort=unknown', 'dateStart=2026-02-31',
         'dateStart=2026-11-30&dateEnd=2026-11-01',
-        'amountMin=15000&amountMax=9000', 'type=exe', 'analysis=unknown',
+        'amountMin=15000&amountMax=9000', 'type=exe', 'analysis=unknown', 'category=invalid',
         'amountMin=1.23'
       ]) {
         const response = await filtered(invalid);
@@ -193,6 +203,36 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       const partialSearch = await filtered('analysis=partial&merchant=central');
       assert.equal(partialSearch.statusCode, 200, partialSearch.body);
       assert.ok(partialSearch.json().documents.some(doc => doc.id === id));
+      // Correct purchase category must reflect items, not the gas station business.
+      const reviewed = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/metadata',
+        headers: { ...headers, cookie },
+        payload: {
+          merchant: 'POSTO EXEMPLO COMBUSTIVEL LTDA',
+          category: 'alimentacao', subcategory: 'Café e bebidas'
+        }
+      });
+      assert.equal(reviewed.statusCode, 200, reviewed.body);
+      assert.equal(reviewed.json().document.category, 'alimentacao');
+      assert.equal(reviewed.json().document.subcategory, 'Café e bebidas');
+
+      const analyzedAgain = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/analysis',
+        headers: { ...headers, cookie },
+        payload: {
+          extractedText: 'POSTO EXEMPLO COMBUSTIVEL LTDA\nITEM: CAFE 10,99\nTOTAL R$ 15,98',
+          merchant: 'Incorrect inferred station',
+          documentDate: '2026-11-18', amountCents: 1598,
+          category: 'combustivel', subcategory: 'Abastecimento'
+        }
+      });
+      assert.equal(analyzedAgain.statusCode, 200, analyzedAgain.body);
+      assert.equal(analyzedAgain.json().document.merchant, 'POSTO EXEMPLO COMBUSTIVEL LTDA');
+      assert.equal(analyzedAgain.json().document.category, 'alimentacao');
+      assert.equal(analyzedAgain.json().document.subcategory, 'Café e bebidas');
+      const retained = await filtered('category=alimentacao&merchant=POSTO');
+      assert.equal(retained.statusCode, 200, retained.body);
+      assert.ok(retained.json().documents.some(doc => doc.id === id));
       // The application no longer enforces per-day AI quotas.
       // A non-existent legacy quota endpoint must not be relied on.
       const retiredQuota = await app.inject({
