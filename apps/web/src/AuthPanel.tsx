@@ -24,7 +24,6 @@ const phrases = {
     invalid: 'Não foi possível concluir a solicitação. Confira seus dados e tente novamente.',
     min: 'Use pelo menos 8 caracteres.', logout: 'Sair da conta', welcome: 'Sessão iniciada',
     demo: 'Seus arquivos reais ficarão disponíveis após o login.',
-    secure: 'Acesso protegido com Better Auth',
     unavailable: 'Link de recuperação inválido ou ausente.',
     processing: 'Processando…'
   },
@@ -39,7 +38,6 @@ const phrases = {
     invalid: 'We could not complete that request. Check your details and retry.',
     min: 'Use at least 8 characters.', logout: 'Sign out', welcome: 'Signed in',
     demo: 'Your own documents are available after signing in.',
-    secure: 'Protected by Better Auth',
     unavailable: 'Invalid or missing password reset link.',
     processing: 'Processing…'
   }
@@ -173,7 +171,6 @@ export default function AuthPanel({ language, status, onAuthChange }: {
         ) : (
           <>
             <h2 className="mt-6 text-2xl font-semibold tracking-tight">{mode === 'register' ? t.register : mode === 'forgot' ? t.forgot : mode === 'reset' ? t.reset : t.heading}</h2>
-            <p className="mt-2 text-sm text-slate-500">{t.secure}</p>
             <form onSubmit={submit} className="mt-6 space-y-5 sm:space-y-4">
               {mode === 'register' && (
                 <label className="block text-xs font-semibold text-slate-600">{t.name}
