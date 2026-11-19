@@ -1,0 +1,22 @@
+name: Production smoke — Cloudflare / Render / Neon
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/production-smoke.mjs'
+      - '.github/workflows/production-smoke.yml'
+      - 'apps/api/src/**'
+      - 'apps/web/worker/**'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/production-smoke.mjs
