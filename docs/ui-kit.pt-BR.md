@@ -1,6 +1,6 @@
 # Arqvo UI Kit — referência visual permanente
 
-**Snapshot canônico atual (indicadores e busca):** [Ver versão validada](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-minimal-ui). Os arquivos antigos são referências históricas; a aplicação ativa está em `apps/web/src`.
+**Snapshot canônico atual (indicadores e busca):** [Ver versão validada](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-upload-sources). Os arquivos antigos são referências históricas; a aplicação ativa está em `apps/web/src`.
 
 **Referência histórica:** protótipo original no commit [6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7](https://github.com/gabrielduclos/arqvo/tree/6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7). Código congelado em [App.tsx](../design/reference/2026-11-19-original-prototype/App.tsx) e [style.css](../design/reference/2026-11-19-original-prototype/style.css). **Esses arquivos são somente referência: nunca reintroduzir documentos fictícios no aplicativo.**
 
@@ -20,6 +20,7 @@
 - Visão geral atual: título simples, **sem banner roxo grande**. Três indicadores reais ficam **lado a lado também no celular** (3 colunas) e todos são botões. Total abre Documentos sem filtros; Este mês filtra pela data de envio do mês atual; Dados identificados filtra por análise concluída. Valores vêm somente da conta autenticada.
 - Documentos: CTA de upload de largura total no celular, uma única busca por texto com botão Filtros ao lado (PDF/imagem ficam no painel avançado, sem pills separados, e a pesquisa por IA foi removida), cartões com valor, status e **alvos táteis mínimos de 44px** para reanalisar/baixar/excluir. Modal de documento funciona como bottom sheet no mobile.
 - **Informações de upload:** o card fixo de formatos/limites/IA foi substituído por ícone circular **ⓘ** junto ao título Documentos. Toque para abrir detalhes em bottom sheet; o aviso sobre processamento com IA continua acessível.
+- **Seleção de documento:** ao tocar **Adicionar documento**, mostrar primeiro um **modal próprio em bottom sheet** com três botões grandes e rotulados: **Câmera**, **Galeria**, **Arquivo**. Só após tocar uma opção abrir a função nativa correspondente do sistema. Câmera usa captura traseira (`capture="environment"`); Galeria aceita imagem; Arquivo aceita PDF ou imagem. Não abrir o seletor nativo diretamente ao tocar no botão principal.
 - Não exibir dados fictícios, mesmo usando esse protótipo como base visual.
 
 ## Transições originais — requisito
@@ -69,3 +70,10 @@
 - Enviar exclusivamente a Better Auth `POST /api/auth/change-password` autenticada, com `revokeOtherSessions: true`, preservando a sessão atual e encerrando as outras. Senhas não devem ser registradas em logs/analytics.
 - Mensagens de erro/sucesso concisas, bilíngues e acessíveis; nenhum aviso repetitivo de privacidade.
 - Referência ativa: `apps/web/src/ProfilePanel.tsx` e `apps/web/src/App.tsx`; não criar um segundo mecanismo de autenticação.
+
+
+## Escolha da origem do upload — 19/11/2026
+- Componente `apps/web/src/UploadSourceModal.tsx` é o modal oficial de escolha. Exibir opções Câmera, Galeria, Arquivo no mobile e desktop, com transição motion e respeito à safe area.
+- Inputs file nativos continuam montados ocultos em `apps/web/src/VaultPanel.tsx`, um por origem, para preservar compatibilidade com iOS Safari, Android e desktop.
+- `input.click()` precisa ocorrer **sincronamente no evento de toque**, sem `await`, pois navegadores bloqueiam seletores/câmera sem gesto do usuário.
+- O fluxo posterior não muda: arquivo original vai ao R2, dados ao Neon, extração automática com Workers AI, verificação de MIME e limite 8 MB.

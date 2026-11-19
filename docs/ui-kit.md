@@ -1,6 +1,6 @@
 # Arqvo UI Kit — permanent visual reference
 
-**Current canonical snapshot (interactive KPIs and search):** [Open validated reference](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-minimal-ui). Older snapshots are historical; deployed code remains in `apps/web/src`.
+**Current canonical snapshot (interactive KPIs and search):** [Open validated reference](https://github.com/gabrielduclos/arqvo/tree/main/design/reference/2026-11-19-upload-sources). Older snapshots are historical; deployed code remains in `apps/web/src`.
 
 **Historical reference:** Original Arqvo prototype commit [6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7](https://github.com/gabrielduclos/arqvo/tree/6a9b6d54fcacef2fb96ab79cf83fd3aa96f2dcc7). The exact original prototype source is frozen in [App.tsx](../design/reference/2026-11-19-original-prototype/App.tsx) and [style.css](../design/reference/2026-11-19-original-prototype/style.css). **These files are reference only; never import demo data into production.**
 
@@ -21,6 +21,7 @@
 - Current Overview: simple title **without a large purple hero**; three clickable real-data KPI cards **side by side even on mobile**. Total opens all Documents, This month applies the current upload-month filter, and Data identified applies the completed-analysis filter.
 - Documents: full-width upload CTA on mobile, a single text search with adjacent Filters control (PDF/image selection stays in advanced filters; no AI search mode or separate pills), touch-friendly document cards, and a mobile bottom-sheet preview.
 - **Upload guidance:** the tall permanent information card was replaced with a compact circular **ⓘ** next to Documents. Tapping opens an accessible modal/bottom sheet with file format, size and automatic AI processing details.
+- **Document source chooser:** tapping **Add a document** first opens our own bottom-sheet modal with three large accessible choices: **Camera**, **Photo library**, **Files**. Only a direct tap on a choice invokes the relevant native OS picker/camera. Camera requests rear capture (`capture="environment"`); library accepts images; Files accepts PDF and images. Do not open the native picker directly from the primary CTA.
 - Both screens use **real Neon account data only**, with an actual upload control. Preserve the visual structure without restoring static document arrays.
 
 ## Motion (do not regress)
@@ -68,3 +69,9 @@ If future instructions change data flows, API, components or AI behavior, keep t
 - Require current password, new password (at least 8 characters) and confirmation, with local equality checks, toggle visibility and accessible feedback.
 - Submit through the existing authenticated Better Auth `POST /api/auth/change-password` proxy with `revokeOtherSessions: true`; keep the current session active and revoke others. Do not log, store or track passwords.
 - Source: `apps/web/src/ProfilePanel.tsx` and `apps/web/src/App.tsx`.
+
+
+## Upload source picker — November 19, 2026
+- `apps/web/src/UploadSourceModal.tsx` is the official source-selection bottom sheet. Camera, Photo library, Files are large accessible choices, with motion and safe-area padding.
+- Three hidden native file inputs remain mounted in `apps/web/src/VaultPanel.tsx`, each configured for its OS function. Initiate `input.click()` **synchronously** from a genuine button event, without awaiting, so browsers permit native capture/pickers.
+- The downstream R2 upload, Neon metadata, automatic Workers AI extraction, MIME validation and 8 MB limit remain unchanged.
