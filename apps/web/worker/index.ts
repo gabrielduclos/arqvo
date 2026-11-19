@@ -513,7 +513,7 @@ async function handleLocalScan(request: Request, env: Env, id: string): Promise<
   if (!user) return fail(401, 'unauthorized');
   const doc = await getOwnerDocument(request, env, id);
   if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/') ||
-      !doc.mimeType.startsWith('image/')) return fail(404, 'document_not_found');
+      !(doc.mimeType.startsWith('image/') || doc.mimeType === 'application/pdf')) return fail(404, 'document_not_found');
 
   const hints = readReceiptHints(text);
   const merchant = merchantFromText(text);
