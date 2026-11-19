@@ -139,6 +139,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
   useEffect(() => { void refresh(); }, [email]);
 
   async function analyze(id: string) {
+    if (!aiOptIn && !window.confirm(t.confirmAI)) return;
     setWorkingId(id);
     setError('');
     try {
@@ -313,6 +314,8 @@ export default function VaultPanel({ language, email }: { language: Language; em
               ))}
             </div>}
         <p className="mt-4 text-xs leading-relaxed text-slate-400">{t.note} {t.original} {t.billing}</p>
+        <p className="mt-2 text-xs font-medium text-amber-700">{t.betaWarning}</p>
+        <a className="mt-2 inline-block text-xs font-semibold text-brand underline" href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'} target="_blank" rel="noreferrer">{t.privacy}</a>
       </div>
 
       {selected && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[2px] sm:items-center" onMouseDown={e => {if (e.target === e.currentTarget) setSelected(null);}}>

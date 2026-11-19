@@ -2,40 +2,64 @@
 
 **Your documents. Every answer.**
 
-[Português (Brasil)](README.pt-BR.md) | [Architecture](docs/architecture.md) | [Deployment](docs/deployment.md)
+[Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
 
-Arqvo is an open-source, privacy-first organizer for receipts, invoices, proofs of payment, and personal financial documents.
+**Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, and offers optional AI-assisted extraction and search.
 
-## Product vision
-Capture documents using a camera or import images and PDFs. Preserve original files, extract searchable amounts, dates and merchant information, then find and securely download those originals. Natural-language search and OCR are planned.
+**Web app:** https://arqvo.uorqui1.workers.dev
 
-> **Current status: UI demo / pre-MVP.** A React frontend with clearly labeled fictional sample documents is available in source. The API exposes health endpoints and Better Auth routes. Authentication API is enabled **without public signup**, but live verified-email delivery and an authenticated user session still need validation. File uploads, OCR, real-document search, and downloads are NOT implemented yet.
+> **Beta warning:** The account area and document management are implemented; full end-to-end testing with a verified real account is still pending. Not an audited financial vault or the only safe backup for important documents. The landing/demo examples are fictional. Your actual uploaded documents appear under **My files** after signing in.
+
+## Features
+
+- Email/password signup and sign-in with Better Auth, mandatory email verification and password reset (Resend).
+- Owner-scoped PDF/JPG/PNG/WebP upload to private Cloudflare R2, with magic-byte checks, 8 MB/file and 100 documents/account limits.
+- Original-file download, image preview, document listing, search, deletion and structured metadata in PostgreSQL.
+- **Opt-in AI analysis:** Cloudflare Workers AI converts documents to text and suggests merchant, date and amount in BRL. AI suggestions can be wrong, so always compare them to the original.
+- **Natural-language search:** AI interprets the query into safe filters, while PostgreSQL retrieves only the signed-in user's matching documents.
+- Portuguese/English interface, responsive layout and automated integration tests.
 
 ## Infrastructure
-- React + Vite + TypeScript + Tailwind UI hosted as **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds configured for GitHub `main`.
-- Node.js API on **Render**, independent service `arqvo-api`.
-- PostgreSQL on **Neon**, separate project/database `arqvo`.
-- Private **Cloudflare R2** bucket `arqvo-documents` provisioned, not yet accessible from document APIs.
-- **Better Auth** API is enabled via Cloudflare → Render → Neon, with public signup disabled. Resend sender uses `arqvo@uorqui.app`; real email delivery not yet verified.
-- GitHub Actions for API tests and frontend build checks; Cloudflare Builds handles web deployment.
 
-### Current Cloudflare frontend
+```text
+React/Vite UI ── Cloudflare Workers Static Assets
+                     ├── Better Auth proxy ── Render Fastify ── Neon PostgreSQL
+                     ├── Private R2 original documents
+                     └── Workers AI (explicit analysis and question search)
+```
 
-Demo: https://arqvo.uorqui1.workers.dev — fictional example data only. The Worker includes a same-origin authentication proxy and a private R2 binding, but does not expose document upload or download routes.
+- GitHub: separate public MIT repository `gabrielduclos/arqvo`.
+- Render: independent `arqvo-api` service (`apps/api`).
+- Neon: independent project/database `arqvo`, with auth tables, `documents`, and `ai_usage`.
+- Cloudflare: dedicated Worker `arqvo`, dedicated private bucket `arqvo-documents`, Workers AI binding.
+- CI: GitHub Actions and Cloudflare Builds on `main`.
 
-## Getting started
-Requires Node.js 22 or later.
+## Limits and unfinished work
 
-```sh
+Per-user AI allowance: 8 calls/day; service-wide limit: 40/day. PDF/image text conversion is best-effort, not a guaranteed OCR transcription. General exports, account-wide deletion, automated orphan cleanup, backups, retention policies and full production security audit remain planned. Do not upload highly sensitive documents during beta. See [Privacy](PRIVACY.md).
+
+## Run locally
+
+Node.js 22+.
+
+```bash
 cd apps/api
 npm install
 npm test
 npm start
 ```
 
-Routes: `GET /health/live` (liveness), `GET /health/ready` (checks PostgreSQL).
+For web development:
 
-See [architecture](docs/architecture.md), [deployment](docs/deployment.md), and [roadmap](docs/roadmap.md).
+```bash
+cd apps/web
+npm install
+npm run dev
+npm run build
+```
 
-## Open source
-MIT licensed. Contributions are welcome. Never commit actual financial documents or secrets.
+Production deployment is handled through Cloudflare Builds and Render, not the local Vite preview. Review [deployment](docs/deployment.md) before configuring secrets.
+
+## Contribute
+
+MIT-licensed code, with [contribution guidelines](CONTRIBUTING.md). User documents are **not** public or licensed under MIT. Never commit financial documents, credentials or production secrets.

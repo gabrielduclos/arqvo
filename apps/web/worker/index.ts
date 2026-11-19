@@ -324,6 +324,39 @@ const searchSchema = {
   required: ['search_text', 'merchant', 'date_start', 'date_end', 'amount_min_cents', 'amount_max_cents']
 };
 
+function toMoneyCents(raw: string): number | null {
+  const digits = raw.replace(/[^\d,.]/g, '');
+  if (!digits) return null;
+  let normalized: string;
+  if (digits.includes(',')) {
+    normalized = digits.replace(/\./g, '').replace(',', '.');
+  } else if (/\.\d{1,2}$/.test(digits)) {
+    normalized = digits;
+  } else {
+    normalized = digits.replace(/\./g, '');
+  }
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value < 0 || value > 1000000000) return null;
+  return Math.round(value * 100);
+}
+
+// Always verify BRL monetary values from the query independently of AI output.
+function explicitMoneyFilters(question: string): { min?: number; max?: number } {
+  const pattern = /r\$\s*([\d.,]+)|([\d.,]+)\s*(?:reais|real)\b/gi;
+  const amounts = Array.from(question.matchAll(pattern))
+    .map(m => toMoneyCents(m[1] || m[2]))
+    .filter((n): n is number => n !== null);
+  if (!amounts.length) return {};
+  const lower = question.toLocaleLowerCase('pt-BR');
+  if (amounts.length > 1 && /\b(entre|between|de|from)\b/.test(lower)) {
+    return { min: Math.min(...amounts), max: Math.max(...amounts) };
+  }
+  const amount = amounts[0];
+  if (/\b(acima|maior|mais de|superior|over|above|greater than)\b/.test(lower)) return { min: amount };
+  if (/\b(abaixo|menor|menos de|inferior|under|below|less than)\b/.test(lower)) return { max: amount };
+  return { min: amount, max: amount };
+}
+
 async function handleAISearch(request: Request, env: Env): Promise<Response> {
   if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
   if (!(await authorized(request, env))) return fail(401, 'unauthorized');
@@ -361,6 +394,15 @@ async function handleAISearch(request: Request, env: Env): Promise<Response> {
     if (Number.isSafeInteger(value) && value >= 0 && value <= 100000000000) {
       params.set(target, String(value));
     }
+  }
+  const explicit = explicitMoneyFilters(question);
+  if (explicit.min !== undefined) {
+    params.set('amountMin', String(explicit.min));
+    if (explicit.max === undefined) params.delete('amountMax');
+  }
+  if (explicit.max !== undefined) {
+    params.set('amountMax', String(explicit.max));
+    if (explicit.min === undefined) params.delete('amountMin');
   }
   if (params.size === 0) params.set('q', question.slice(0, 160));
   const response = await fromBackend(request, env, '/api/documents?' + params.toString());

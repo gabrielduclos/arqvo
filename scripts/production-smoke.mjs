@@ -38,4 +38,9 @@ await poll('Cloudflare auth and public signup enabled', web + '/api/auth/status'
     body?.registrationAvailable === true && body?.emailVerificationRequired === true);
 await poll('Private session data is protected without login', web + '/api/me',
   (status, body) => status === 401 && body?.error === 'unauthorized');
+await poll('Document listing blocks unauthenticated visitors', web + '/api/documents',
+  (status, body) => status === 401 && body?.error === 'unauthorized');
+await poll('Private R2 file route blocks unauthenticated visitors',
+  web + '/api/documents/550e8400-e29b-41d4-a716-446655440000/file',
+  (status, body) => status === 401 && body?.error === 'unauthorized');
 console.log('Read-only production checks passed; email delivery is NOT verified by this test.');

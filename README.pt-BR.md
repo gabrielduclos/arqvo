@@ -2,40 +2,64 @@
 
 **Seus documentos. Todas as respostas.**
 
-[English](README.md) | [Arquitetura](docs/architecture.pt-BR.md) | [Implantação](docs/deployment.pt-BR.md)
+[English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
 
-O Arqvo é um organizador de documentos open source focado em privacidade, recibos, notas fiscais, comprovantes e documentos financeiros pessoais.
+O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los e oferece extração e pesquisa opcionais com inteligência artificial.
 
-## Visão do produto
-Fotografar documentos ou importar imagens e PDFs; preservar arquivos originais; extrair valores, datas e estabelecimentos; encontrar documentos e baixar os originais com segurança. OCR e busca por IA são etapas planejadas.
+**Aplicativo:** https://arqvo.uorqui1.workers.dev
 
-> **Status atual: demonstração visual / pré-MVP.** Já existe código de interface React com exemplos fictícios. A API possui rotas de monitoramento e Better Auth ativo **sem cadastro público**. A entrega real de e-mails e uma sessão autenticada ainda precisam ser validadas. Uploads, OCR, busca em arquivos reais e downloads AINDA NÃO foram implementados.
+> **Atenção — beta:** o cadastro, autenticação e módulo de documentos estão implementados; ainda falta validar o fluxo completo com uma conta real de e-mail confirmado. Não é um cofre financeiro auditado nem deve ser a única cópia de documentos importantes. Os exemplos da demonstração são fictícios; arquivos reais aparecem em **Meus arquivos** após o login.
+
+## Funcionalidades
+
+- Cadastro e login com Better Auth, confirmação obrigatória de e-mail e recuperação de senha pelo Resend.
+- Envio de PDF/JPG/PNG/WebP ao Cloudflare R2 privado, com verificação do conteúdo e limites de 8 MB por arquivo e 100 documentos por conta.
+- Download do original, prévia de imagens, listagem, pesquisa, exclusão e metadados estruturados no PostgreSQL.
+- **Análise opcional com IA:** Cloudflare Workers AI converte documentos em texto e sugere estabelecimento, data e valor em reais. Confira os resultados com o documento original.
+- **Busca por linguagem natural:** a IA transforma a pergunta em filtros seguros; o Neon retorna somente documentos do proprietário autenticado.
+- Interface em português/inglês, responsiva e com testes automatizados.
 
 ## Infraestrutura
-- Interface React + Vite + TypeScript + Tailwind publicada via **Cloudflare Workers Static Assets** (`apps/web`), Cloudflare Builds vinculado ao GitHub `main`.
-- API Node.js no **Render**, serviço independente `arqvo-api`.
-- PostgreSQL no **Neon**, projeto/banco separado `arqvo`.
-- Bucket privado **Cloudflare R2** `arqvo-documents` provisionado, ainda sem APIs de arquivos.
-- **Better Auth** ativo na API Cloudflare → Render → Neon, com cadastro público bloqueado. Remetente Resend `arqvo@uorqui.app`; envio real ainda não validado.
-- GitHub Actions para testes da API e compilação web; Cloudflare Builds para deploy.
 
-### Interface Cloudflare
+```text
+Interface React/Vite ── Cloudflare Workers Static Assets
+                           ├── Proxy Better Auth ── Render Fastify ── Neon PostgreSQL
+                           ├── R2 privado: arquivos originais
+                           └── Workers AI: análise e busca sob solicitação
+```
 
-Demonstração: https://arqvo.uorqui1.workers.dev — contém somente exemplos fictícios. O Worker já tem proxy de autenticação e binding R2 privado, mas ainda não disponibiliza upload nem download de documentos reais.
+- GitHub: repositório público MIT `gabrielduclos/arqvo`, independente do Uorqui.
+- Render: `arqvo-api` em `apps/api`.
+- Neon: projeto/banco `arqvo`, com tabelas de autenticação, `documents` e `ai_usage`.
+- Cloudflare: Worker `arqvo`, bucket privado `arqvo-documents` e binding Workers AI.
+- Deploy via Cloudflare Builds, Render e testes GitHub Actions.
 
-## Como executar
-Requer Node.js 22 ou superior.
+## Limites e pendências
 
-```sh
+IA: oito operações diárias por usuário e 40 globalmente. A conversão de PDFs e imagens em texto é por melhor esforço, não OCR infalível. Exportação geral, exclusão completa da conta, limpeza automática de arquivos órfãos, backups, política de retenção e auditoria de segurança ainda não foram concluídos. Evite documentos muito sensíveis durante o beta. Consulte [Privacidade](PRIVACY.pt-BR.md).
+
+## Desenvolvimento local
+
+Node.js 22+.
+
+```bash
 cd apps/api
 npm install
 npm test
 npm start
 ```
 
-Rotas: `GET /health/live` (processo), `GET /health/ready` (verificação PostgreSQL).
+Frontend:
 
-Veja [arquitetura](docs/architecture.pt-BR.md), [implantação](docs/deployment.pt-BR.md) e [roadmap](docs/roadmap.md).
+```bash
+cd apps/web
+npm install
+npm run dev
+npm run build
+```
 
-## Open source
-Licença MIT. Contribuições são bem-vindas. Não publique documentos financeiros reais nem segredos.
+A publicação de produção é feita pela Cloudflare e pelo Render, não pelo preview local. Consulte [implantação](docs/deployment.pt-BR.md) para variáveis de ambiente.
+
+## Contribuições
+
+O **código** utiliza licença MIT; os documentos dos usuários não são públicos nem licenciados. Nunca publique comprovantes reais, senhas ou segredos no GitHub.
