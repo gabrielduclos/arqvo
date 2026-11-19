@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LoaderCircle, LogOut, Menu, ShieldCheck, Sparkles } from 'lucide-react';
+import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles } from 'lucide-react';
 import AuthPanel, { type AuthStatus, type Profile } from './AuthPanel';
 import VaultPanel from './VaultPanel';
 import OverviewPanel from './OverviewPanel';
