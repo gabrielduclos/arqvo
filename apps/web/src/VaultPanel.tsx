@@ -12,36 +12,37 @@ type Document = {
   mimeType: string;
   sizeBytes: number | string;
   status: 'uploaded' | 'ready' | 'failed';
+  hasExtractedText?: boolean;
   merchant: string | null;
   documentDate: string | null;
   amountCents: string | number | null;
   currency?: string;
   createdAt: string;
 };
-type Result = { documents?: Document[]; document?: Document; error?: string; aiUsed?: boolean; note?: string };
+type Result = { documents?: Document[]; document?: Document; error?: string; aiUsed?: boolean; note?: string; extractionState?: 'structured' | 'partial' | 'text_only' };
 
 const words = {
   pt: {
-    title: 'Meus arquivos', intro: 'Aqui ficam os seus documentos reais, privados e vinculados à sua conta.',
+    title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos reais, privados e vinculados à sua conta.',
     upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
-    processing: 'Enviando…', analyzeAfter: 'Analisar com IA depois do upload', aiConsent: 'Ao selecionar, autorizo o processamento do conteúdo pela Cloudflare Workers AI. A extração pode conter erros.',
+    processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar automaticamente estabelecimento, data e valor. O arquivo original será preservado; confira os dados extraídos.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
     find: 'Buscar', all: 'Todos', reset: 'Limpar busca', aiQuestion: 'Pergunte à IA sobre seus documentos',
     aiPlaceholder: 'Ex.: notas da farmácia acima de 100 reais', askAI: 'Pesquisar com IA',
     searchAIInfo: 'A IA interpreta sua pergunta, mas os resultados vêm apenas dos seus documentos. A pergunta é enviada à Cloudflare AI.',
-    searching: 'Pesquisando…', scanned: 'Analisado', pending: 'Ainda não analisado',
+    searching: 'Pesquisando…', scanned: 'Dados identificados', pending: 'Aguardando análise', partial: 'Dados parciais', textOnly: 'Texto extraído, sem dados identificados', extracting: 'Processando com IA…', noFields: 'O texto foi extraído, mas a IA não conseguiu identificar estabelecimento, data ou valor. Você pode tentar novamente.', partialFields: 'Extração parcial: confira e complete os dados pelo documento original.',
     analyze: 'Extrair dados com IA', analyzing: 'Extraindo…', download: 'Baixar original', preview: 'Visualizar arquivo',
     delete: 'Excluir', confirmDelete: 'Excluir permanentemente este documento? Esta ação não pode ser desfeita.',
     error: 'Não foi possível concluir a operação. Tente novamente.',
     unauthorized: 'Sessão inválida ou e-mail não confirmado. Faça login novamente.',
     aiLimit: 'Seu limite diário de IA foi atingido ou o serviço está indisponível. O arquivo continua salvo.',
     large: 'Arquivo muito grande. O limite é 8 MB.', type: 'Formato não aceito. Envie PDF, JPG, PNG ou WebP.',
-    saved: 'Arquivo guardado com segurança.', extracted: 'Extração concluída. Confira as informações no arquivo original.',
+    saved: 'Arquivo salvo. Iniciando extração automática…', extracted: 'Dados identificados. Confira as informações no documento original.',
     note: 'Valores extraídos por IA são sugestões e devem ser conferidos.', noResults: 'Nenhum documento encontrado.',
     merchant: 'Estabelecimento', amount: 'Valor', date: 'Data', format: 'Formato',
     source: 'Arquivo original', close: 'Fechar', selected: 'Detalhes do documento',
-    personal: 'Privado · somente sua conta', noAI: 'A análise é opcional e pode ser feita depois.',
+    personal: 'Privado · somente sua conta', noAI: 'A análise acontece após o upload; você pode tentar novamente se faltarem informações.',
     billing: 'IA limitada a 8 operações por conta por dia, com limite global de proteção.',
     back: 'Voltar', aiFallback: 'A IA não conseguiu interpretar os filtros. Busca textual utilizada.',
     notYet: 'Ainda não foi possível identificar dados estruturados.',
@@ -52,26 +53,26 @@ const words = {
     betaWarning: 'Versão beta. Evite documentos altamente sensíveis até a revisão de segurança.'
   },
   en: {
-    title: 'My files', intro: 'Your real, private documents are stored here and linked only to your account.',
+    title: 'Documents', intro: 'Upload, search, preview and download real private documents linked to your account.',
     upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
-    processing: 'Uploading…', analyzeAfter: 'Analyze with AI after upload', aiConsent: 'By selecting this, I authorize Cloudflare Workers AI to process the file content. Results may be inaccurate.',
+    processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI automatically attempts to recognize the merchant, date and amount. Your original file is preserved; verify the extracted information.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
     find: 'Search', all: 'All', reset: 'Clear search', aiQuestion: 'Ask AI about your documents',
     aiPlaceholder: 'e.g., pharmacy invoices over R$ 100', askAI: 'AI search',
     searchAIInfo: 'AI interprets your question, but matches come only from your documents. Your question is sent to Cloudflare AI.',
-    searching: 'Searching…', scanned: 'Analyzed', pending: 'Not yet analyzed',
+    searching: 'Searching…', scanned: 'Data identified', pending: 'Waiting for analysis', partial: 'Partial data', textOnly: 'Text extracted, details not identified', extracting: 'Analyzing with AI…', noFields: 'Text was extracted, but the AI could not identify a merchant, date or amount. You can try again.', partialFields: 'Partial extraction: check the original for missing details.',
     analyze: 'Extract with AI', analyzing: 'Extracting…', download: 'Download original', preview: 'Preview file',
     delete: 'Delete', confirmDelete: 'Permanently delete this document? This cannot be undone.',
     error: 'Unable to complete the operation. Please retry.',
     unauthorized: 'Invalid session or unverified email. Sign in again.',
     aiLimit: 'Your daily AI quota has been reached or the service is unavailable. Your file remains saved.',
     large: 'File is too large. Maximum is 8 MB.', type: 'Unsupported file. Choose PDF, JPG, PNG or WebP.',
-    saved: 'File stored securely.', extracted: 'Analysis finished. Please verify the information against the original.',
+    saved: 'File saved. Starting automatic extraction…', extracted: 'Details identified. Check the information against the original.',
     note: 'AI-extracted values are suggestions that must be checked.', noResults: 'No documents found.',
     merchant: 'Merchant', amount: 'Amount', date: 'Date', format: 'Format',
     source: 'Original file', close: 'Close', selected: 'Document details',
-    personal: 'Private · only your account', noAI: 'AI analysis is optional and can be done later.',
+    personal: 'Private · only your account', noAI: 'Analysis starts after upload. Retry if details are missing.',
     billing: 'AI limited to 8 actions per account per day, with a global safeguard.',
     back: 'Back', aiFallback: 'AI could not interpret filters. Text search was used.',
     notYet: 'Structured fields have not been identified yet.',
@@ -102,7 +103,6 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const [search, setSearch] = useState('');
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiSearch, setAiSearch] = useState(false);
-  const [aiOptIn, setAiOptIn] = useState(false);
   const [mode, setMode] = useState<'all' | 'keyword' | 'ai'>('all');
   const [loading, setLoading] = useState(true);
 
@@ -144,10 +144,11 @@ export default function VaultPanel({ language, email }: { language: Language; em
   }
   useEffect(() => { void refresh(); }, [email]);
 
-  async function analyze(id: string) {
-    if (!aiOptIn && !window.confirm(t.confirmAI)) return;
+  async function analyze(id: string, automatic = false) {
+    if (!automatic && !window.confirm(t.confirmAI)) return;
     setWorkingId(id);
     setError('');
+    setMessage(t.extracting);
     try {
       const response = await fetch('/api/documents/' + id + '/analyze', {
         method: 'POST', credentials: 'same-origin',
@@ -156,10 +157,12 @@ export default function VaultPanel({ language, email }: { language: Language; em
       });
       const body = await parse(response);
       if (!response.ok) throw new Error(problem(body.error));
-      setMessage(t.extracted);
+      setMessage(body.extractionState === 'structured' ? t.extracted
+        : body.extractionState === 'partial' ? t.partialFields : t.noFields);
       await refresh();
       if (selected?.id === id && body.document) setSelected(body.document);
     } catch (cause) {
+      setMessage('');
       setError(cause instanceof Error ? cause.message : t.error);
     } finally {
       setWorkingId(null);
@@ -186,7 +189,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
       if (!response.ok || !result.document) throw new Error(problem(result.error));
       setMessage(t.saved);
       await refresh();
-      if (aiOptIn) await analyze(result.document.id);
+      await analyze(result.document.id, true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t.error);
     } finally {
@@ -262,11 +265,11 @@ export default function VaultPanel({ language, email }: { language: Language; em
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-brand hover:bg-indigo-50">{t.upload}</button>
         </div>
         <div className="mt-5 border-t border-slate-100 pt-4">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input type="checkbox" checked={aiOptIn} onChange={e => setAiOptIn(e.target.checked)} className="mt-1 size-4 accent-indigo-600"/>
-            <span><span className="block text-sm font-semibold text-slate-700">{t.analyzeAfter}</span>
-              <span className="mt-1 block text-xs leading-relaxed text-slate-500">{t.aiConsent}</span></span>
-          </label>
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 shrink-0 text-brand" size={19}/>
+            <div><p className="text-sm font-semibold text-slate-700">{t.analyzeAfter}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t.aiConsent}</p></div>
+          </div>
         </div>
       </div>
 
@@ -306,7 +309,11 @@ export default function VaultPanel({ language, email }: { language: Language; em
                   <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand">{doc.filename}</span>
                     <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
-                    <span className={'mt-1 inline-block text-[11px] font-medium ' + (doc.status === 'ready' ? 'text-emerald-600' : 'text-slate-400')}>{doc.status === 'ready' ? t.scanned : t.pending}</span>
+                    <span className={'mt-1 inline-block text-[11px] font-medium ' + (doc.status === 'ready' ? 'text-emerald-600' : doc.hasExtractedText ? 'text-amber-700' : 'text-slate-400')}>
+                      {workingId === doc.id ? t.extracting : doc.status === 'ready' ? t.scanned
+                        : doc.merchant || doc.documentDate || doc.amountCents !== null ? t.partial
+                        : doc.hasExtractedText ? t.textOnly : t.pending}
+                    </span>
                   </button>
                   <span className="shrink-0 text-right text-sm font-semibold">{money(doc.amountCents)}</span>
                   <div className="flex shrink-0 items-center gap-2">

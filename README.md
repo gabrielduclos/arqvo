@@ -4,18 +4,18 @@
 
 [Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
 
-**Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, and offers optional AI-assisted extraction and search.
+**Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, automatically attempts to extract metadata after upload, and offers AI-assisted search.
 
 **Web app:** https://arqvo.uorqui1.workers.dev
 
-> **Beta warning:** The account area and document management are implemented; full end-to-end testing with a verified real account is still pending. Not an audited financial vault or the only safe backup for important documents. The landing/demo examples are fictional. Your actual uploaded documents appear under **My files** after signing in.
+> **Beta warning:** The account area and document management are implemented; full end-to-end testing with a verified real account is still pending. Not an audited financial vault or the only safe backup for important documents. The application now opens to the login page. After signing in, **Overview** shows live account statistics and **Documents** contains real uploads. No sample documents are displayed.
 
 ## Features
 
 - Email/password signup and sign-in with Better Auth, mandatory email verification and password reset (Resend).
 - Owner-scoped PDF/JPG/PNG/WebP upload to private Cloudflare R2, with magic-byte checks, 8 MB/file and 100 documents/account limits.
 - Original-file download, image preview, document listing, search, deletion and structured metadata in PostgreSQL.
-- **Opt-in AI analysis:** Cloudflare Workers AI converts documents to text and suggests merchant, date and amount in BRL. AI suggestions can be wrong, so always compare them to the original.
+- **Automatic AI analysis:** after each upload, Cloudflare Workers AI attempts to read the document and suggests merchant, date and amount in BRL; JPEG/PNG/WebP use a vision/OCR model. The upload screen explains this processing. AI suggestions can be wrong, so always compare them to the original.
 - **Natural-language search:** AI interprets the query into safe filters, while PostgreSQL retrieves only the signed-in user's matching documents.
 - Portuguese/English interface, responsive layout and automated integration tests.
 
@@ -25,7 +25,7 @@
 React/Vite UI ── Cloudflare Workers Static Assets
                      ├── Better Auth proxy ── Render Fastify ── Neon PostgreSQL
                      ├── Private R2 original documents
-                     └── Workers AI (explicit analysis and question search)
+                     └── Workers AI (automatic extraction after upload and question search)
 ```
 
 - GitHub: separate public MIT repository `gabrielduclos/arqvo`.

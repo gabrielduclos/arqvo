@@ -18,14 +18,15 @@ Checked items reflect implemented code or verified infrastructure. / Itens marca
 - [x] Authorized image preview, original download and deletion / Prévia, download e exclusão autorizados
 - [x] Read-only unauthenticated security checks / Testes de acesso sem sessão
 - [x] Bilingual responsive document manager / Gestão de documentos responsiva e bilíngue
+- [x] Login page and real Overview/Documents tabs without synthetic records / Login inicial e abas Visão geral/Documentos com dados reais, sem exemplos fictícios
 - [ ] End-to-end test with real verified user and sample file / Teste completo com conta real e arquivo inofensivo
 - [ ] Mobile camera capture affordance / Acesso direto à câmera no celular
 - [ ] Reliable orphan cleanup, full export, account deletion / Limpeza de órfãos, exportação e exclusão de conta
 - [ ] Security hardening, privacy review, backup & retention / Auditoria, privacidade, backups e retenção
 
 ## Phase 2 / Fase 2 — AI
-- [x] On-demand Workers AI document-to-text conversion / Extração de texto sob solicitação
-- [x] Optional AI merchant/date/amount suggestions / Sugestões de estabelecimento, data e valor
+- [x] Automatic Workers AI extraction after upload / Extração automática após upload
+- [x] JPEG vision/OCR, merchant/date/amount suggestions and truthful analysis states / Modelo visual para JPEG, sugestões de dados e status fiel à extração
 - [x] Natural-language question-to-filter search, owner-scoped SQL / Pesquisa natural com filtros SQL
 - [x] Daily per-account and global usage limits / Limites de IA por conta e globais
 - [ ] Verify accuracy on real documents and low-quality scanned PDFs / Medir precisão com PDFs escaneados

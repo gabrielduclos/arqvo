@@ -9,12 +9,12 @@ Arqvo is an experimental, open-source document organizer. It is **not** an audit
 ## Data handled
 - **Account:** name, email, password hash, verification state and session data, processed by Better Auth and stored in the isolated Arqvo Neon PostgreSQL database.
 - **Documents:** the original PDF or image is stored privately in Cloudflare R2; metadata such as filename, merchant, date, amount and extracted text is stored in Neon. Uploaded bytes are not intentionally changed by the application.
-- **AI (opt-in):** Only when you request an analysis, the file is processed by Cloudflare Workers AI's text/Markdown conversion, with a model used to suggest structured metadata. A natural-language search sends the search question—not the entire document library—to Cloudflare Workers AI. AI outputs can be incorrect.
+- **AI (automatic after upload):** Uploading a document triggers Cloudflare Workers AI processing of its content to extract text and suggest structured metadata. For images, a vision model is used; for PDFs, document conversion is used. The upload interface discloses this processing. The original is retained even when extraction fails. A natural-language search sends the search question—not the entire document library—to Cloudflare Workers AI. AI outputs can be incorrect.
 - **Email:** Resend receives the email address and account verification/password-reset message content. It does not receive document originals through the configured email flow.
 - **Operational data:** service providers may process request metadata, IP addresses and logs for authentication and service security.
 
 ## Storage and provider boundaries
-- Cloudflare Workers serves the site, authorizes file access and processes user-initiated AI requests.
+- Cloudflare Workers serves the site, authorizes file access, automatically processes documents with Workers AI following upload, and processes user-initiated natural-language searches.
 - Private R2 storage holds the original files, without a public R2 domain.
 - Render hosts the API; Neon holds account records and searchable metadata. Infrastructure and processors can operate in different regions. **No promise of Brazilian-only processing or end-to-end encryption is made.**
 - Application admins and infrastructure operators may have technical access to data needed for troubleshooting. Do not assume a zero-knowledge service.

@@ -4,18 +4,18 @@
 
 [English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
 
-O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los e oferece extração e pesquisa opcionais com inteligência artificial.
+O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los, inicia automaticamente a extração de dados após o upload e oferece pesquisa com inteligência artificial.
 
 **Aplicativo:** https://arqvo.uorqui1.workers.dev
 
-> **Atenção — beta:** o cadastro, autenticação e módulo de documentos estão implementados; ainda falta validar o fluxo completo com uma conta real de e-mail confirmado. Não é um cofre financeiro auditado nem deve ser a única cópia de documentos importantes. Os exemplos da demonstração são fictícios; arquivos reais aparecem em **Meus arquivos** após o login.
+> **Atenção — beta:** o cadastro, autenticação e módulo de documentos estão implementados; ainda falta validar o fluxo completo com uma conta real de e-mail confirmado. Não é um cofre financeiro auditado nem deve ser a única cópia de documentos importantes. O aplicativo abre na tela de login. Após entrar, **Visão geral** exibe indicadores reais da conta, e **Documentos** contém os uploads reais. Não são exibidos documentos de demonstração.
 
 ## Funcionalidades
 
 - Cadastro e login com Better Auth, confirmação obrigatória de e-mail e recuperação de senha pelo Resend.
 - Envio de PDF/JPG/PNG/WebP ao Cloudflare R2 privado, com verificação do conteúdo e limites de 8 MB por arquivo e 100 documentos por conta.
 - Download do original, prévia de imagens, listagem, pesquisa, exclusão e metadados estruturados no PostgreSQL.
-- **Análise opcional com IA:** Cloudflare Workers AI converte documentos em texto e sugere estabelecimento, data e valor em reais. Confira os resultados com o documento original.
+- **Análise automática com IA:** após o upload, Cloudflare Workers AI tenta extrair texto e sugerir estabelecimento, data e valor em reais. Fotos JPEG/PNG/WebP usam modelo visual/OCR; o tratamento é informado antes do envio. Confira os resultados com o documento original.
 - **Busca por linguagem natural:** a IA transforma a pergunta em filtros seguros; o Neon retorna somente documentos do proprietário autenticado.
 - Interface em português/inglês, responsiva e com testes automatizados.
 
@@ -25,7 +25,7 @@ O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas
 Interface React/Vite ── Cloudflare Workers Static Assets
                            ├── Proxy Better Auth ── Render Fastify ── Neon PostgreSQL
                            ├── R2 privado: arquivos originais
-                           └── Workers AI: análise e busca sob solicitação
+                           └── Workers AI: extração após upload e pesquisa sob solicitação
 ```
 
 - GitHub: repositório público MIT `gabrielduclos/arqvo`, independente do Uorqui.

@@ -120,12 +120,37 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       });
       assert.equal(analyzed.statusCode, 200, analyzed.body);
       assert.equal(Number(analyzed.json().document.amountCents), 8500);
+      assert.equal(analyzed.json().document.status, 'ready');
       const searched = await app.inject({
         method: 'GET', url: '/api/documents?q=farmácia',
         headers: { cookie }
       });
       assert.equal(searched.statusCode, 200);
       assert.ok(searched.json().documents.some(d => d.id === id));
+      // Regression: text-only OCR must never be labelled "analyzed" when
+      // the model failed to recognize merchant, date and total.
+      const textOnly = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/analysis',
+        headers: { ...headers, cookie },
+        payload: { extractedText: 'texto da imagem pouco legivel', merchant: '', documentDate: null, amountCents: null }
+      });
+      assert.equal(textOnly.statusCode, 200, textOnly.body);
+      assert.equal(textOnly.json().document.status, 'uploaded');
+      const listedAfter = await app.inject({
+        method: 'GET', url: '/api/documents',
+        headers: { cookie }
+      });
+      const item = listedAfter.json().documents.find(d => d.id === id);
+      assert.ok(item);
+      assert.equal(item.status, 'uploaded');
+      assert.equal(item.hasExtractedText, true);
+      const partial = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/analysis',
+        headers: { ...headers, cookie },
+        payload: { extractedText: 'Farmácia Central', merchant: 'Farmácia Central', documentDate: null, amountCents: null }
+      });
+      assert.equal(partial.statusCode, 200, partial.body);
+      assert.equal(partial.json().document.status, 'uploaded');
       const quota = await app.inject({
         method: 'POST', url: '/api/ai/consume',
         headers: { ...headers, cookie }, payload: {}

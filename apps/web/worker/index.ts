@@ -267,6 +267,59 @@ async function consumeAI(request: Request, env: Env): Promise<boolean> {
   return response.ok;
 }
 
+function normalizeDocumentDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let yyyy: number, mm: number, dd: number;
+  const iso = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const brazil = value.trim().match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+  if (iso) [, yyyy, mm, dd] = iso.map(Number);
+  else if (brazil) {
+    yyyy = Number(brazil[3]); mm = Number(brazil[2]); dd = Number(brazil[1]);
+  } else return null;
+  const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+  if (d.getUTCFullYear() !== yyyy || d.getUTCMonth() !== mm - 1 || d.getUTCDate() !== dd) return null;
+  return [String(yyyy), String(mm).padStart(2,'0'), String(dd).padStart(2,'0')].join('-');
+}
+
+function imageDataUri(mime: string, input: ArrayBuffer): string {
+  const source = new Uint8Array(input);
+  let chars = '';
+  // Convert in chunks to avoid overflowing the JS call stack for JPEGs.
+  for (let i = 0; i < source.byteLength; i += 16384) {
+    chars += String.fromCharCode(...source.subarray(i, i + 16384));
+  }
+  return 'data:' + mime + ';base64,' + btoa(chars);
+}
+
+async function readDocumentText(env: Env, filename: string, mime: string, bytes: ArrayBuffer): Promise<{text: string; method: string}> {
+  if (mime.startsWith('image/')) {
+    try {
+      const answer = await env.AI.run('@cf/moondream/moondream3.1-9B-A2B', {
+        task: 'query',
+        image: imageDataUri(mime, bytes),
+        question: 'Act as a literal OCR transcription tool. Read all visible text on this photo of a Brazilian receipt, invoice, bill, proof of payment or document. Return the text, preserving lines. Include vendor name, dates, tax identifiers and especially TOTAL or VALOR PAGO exactly as printed. Never invent characters, numbers or currency; if a part is illegible, skip it. No introduction or explanation.',
+        stream: false, reasoning: false, temperature: 0, max_tokens: 1800
+      });
+      // Moondream's query task returns "answer", not the generic LLM "response".
+      const result = answer as { answer?: string; response?: string };
+      const literalText = typeof result?.answer === 'string' ? result.answer
+        : typeof result?.response === 'string' ? result.response : '';
+      if (literalText.trim()) return { text: literalText.trim().slice(0,25000), method: 'vision-ocr' };
+    } catch {
+      // Fall back to supported Cloudflare image conversion if the vision model fails.
+    }
+  }
+  const converted = await env.AI.toMarkdown([
+    { name: filename, blob: new Blob([bytes], { type: mime }) }
+  ], { conversionOptions: { output: { format: 'text' }, image: { descriptionLanguage: 'pt' } } });
+  const items = Array.isArray(converted) ? converted : [converted];
+  const result = items[0] as { data?: string; format?: string } | undefined;
+  if (!result || result.format === 'error' || typeof result.data !== 'string' || !result.data.trim()) {
+    return { text: '', method: 'conversion-unavailable' };
+  }
+  return { text: result.data.trim().slice(0,25000), method: 'document-conversion' };
+}
+
 async function handleAnalyze(request: Request, env: Env, id: string): Promise<Response> {
   if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
   const user = await authorized(request, env);
@@ -277,38 +330,39 @@ async function handleAnalyze(request: Request, env: Env, id: string): Promise<Re
   if (!(await consumeAI(request, env))) return fail(429, 'ai_daily_limit_or_unavailable');
   const object = await env.DOCS_BUCKET.get(doc.objectKey);
   if (!object) return fail(404, 'file_not_found');
+
   let extractedText = '';
+  let method = '';
   try {
-    const converted = await env.AI.toMarkdown({
-      name: doc.filename,
-      blob: new Blob([await object.arrayBuffer()], { type: doc.mimeType })
-    }, { conversionOptions: { output: { format: 'text' }, image: { descriptionLanguage: 'pt' } } });
-    const results = Array.isArray(converted) ? converted : [converted];
-    const result = results[0] as { data?: string; format?: string; error?: string } | undefined;
-    if (!result || result.format === 'error' || typeof result.data !== 'string') {
-      return fail(422, 'ai_text_extraction_failed');
-    }
-    extractedText = result.data.trim().slice(0, 25000);
-    if (!extractedText) return fail(422, 'ai_text_extraction_empty');
-  } catch {
-    return fail(503, 'ai_processing_unavailable');
-  }
+    const extracted = await readDocumentText(env, doc.filename, doc.mimeType, await object.arrayBuffer());
+    extractedText = extracted.text; method = extracted.method;
+    if (!extractedText) return fail(422, 'ai_text_extraction_failed');
+  } catch { return fail(503, 'ai_processing_unavailable'); }
 
   let fields: Record<string, any> | null = null;
   try { fields = await inferFields(env, extractedText); }
-  catch { /* Preserve extracted text even if metadata inference fails. */ }
+  catch { /* Keep text for search, never fabricate structured values. */ }
+
   const merchant = typeof fields?.merchant === 'string' && fields.merchant.length <= 160
     ? fields.merchant.trim() : '';
-  const date = typeof fields?.document_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fields.document_date)
-    ? fields.document_date : null;
+  const date = normalizeDocumentDate(fields?.document_date);
   const amount = Number.isSafeInteger(fields?.amount_cents) && fields.amount_cents >= 0
     && fields.amount_cents <= 100000000000 ? fields.amount_cents : null;
+  const usefulFields = Number(Boolean(merchant)) + Number(Boolean(date)) + Number(amount !== null);
+
   const result = await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', {
     extractedText, merchant, documentDate: date, amountCents: amount
   });
   if (!result.ok) return json(await jsonBody(result), result.status);
   const updated = await jsonBody(result);
-  return json({ ...updated, textLength: extractedText.length, inferred: Boolean(fields), warning: 'AI results may be inaccurate; check the original.' });
+  return json({
+    ...updated,
+    textLength: extractedText.length,
+    usefulFields,
+    method,
+    extractionState: usefulFields >= 2 ? 'structured' : usefulFields ? 'partial' : 'text_only',
+    warning: usefulFields ? 'Check suggested values against the original.' : 'Text found, but merchant, date and amount could not be identified.'
+  });
 }
 
 const searchSchema = {

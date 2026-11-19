@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { LockKeyhole, Mail, X, UserRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { LockKeyhole, Mail, UserRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 type Language = 'pt' | 'en';
 export type AuthStatus = {
@@ -9,7 +9,7 @@ export type AuthStatus = {
   passwordRecoveryAvailable: boolean;
 };
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
-type Profile = { id: string; name: string; email: string };
+export type Profile = { id: string; name: string; email: string };
 type Result = { ok: boolean; body: Record<string, unknown> };
 
 const phrases = {
@@ -23,7 +23,7 @@ const phrases = {
     changed: 'Senha atualizada. Você pode entrar novamente.',
     invalid: 'Não foi possível concluir a solicitação. Confira seus dados e tente novamente.',
     min: 'Use pelo menos 8 caracteres.', logout: 'Sair da conta', welcome: 'Sessão iniciada',
-    demo: 'A organização de documentos reais continua em desenvolvimento.',
+    demo: 'Seus arquivos reais ficarão disponíveis após o login.',
     secure: 'Acesso protegido com Better Auth',
     unavailable: 'Link de recuperação inválido ou ausente.',
     processing: 'Processando…'
@@ -38,7 +38,7 @@ const phrases = {
     changed: 'Password updated. You can sign in again.',
     invalid: 'We could not complete that request. Check your details and retry.',
     min: 'Use at least 8 characters.', logout: 'Sign out', welcome: 'Signed in',
-    demo: 'Real document organization is still under development.',
+    demo: 'Your own documents are available after signing in.',
     secure: 'Protected by Better Auth',
     unavailable: 'Invalid or missing password reset link.',
     processing: 'Processing…'
@@ -58,8 +58,8 @@ async function request(path: string, payload: object): Promise<Result> {
   return { ok: response.ok, body: typeof body === 'object' && body !== null ? body as Record<string, unknown> : {} };
 }
 
-export default function AuthPanel({ language, status, onClose, onAuthChange }: {
-  language: Language; status: AuthStatus; onClose: () => void;
+export default function AuthPanel({ language, status, onAuthChange }: {
+  language: Language; status: AuthStatus;
   onAuthChange: (user: Profile | null) => void
 }) {
   const t = phrases[language];
@@ -155,12 +155,12 @@ export default function AuthPanel({ language, status, onClose, onAuthChange }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <section aria-modal="true" role="dialog" aria-label={t.heading}
-        className="w-full max-w-[440px] rounded-[26px] bg-white p-6 shadow-2xl sm:p-8">
+    <div className="w-full max-w-[470px]">
+      <section aria-label={t.heading}
+        className="w-full rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm sm:p-9">
         <div className="flex items-start justify-between">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand"><LockKeyhole size={23}/></div>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"><X size={20}/></button>
+          <span className="rounded-full bg-brand-soft px-3 py-1.5 text-[11px] font-semibold text-brand">Arqvo</span>
         </div>
         {user ? (
           <div className="mt-6">

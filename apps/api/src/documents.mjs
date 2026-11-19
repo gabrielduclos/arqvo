@@ -78,6 +78,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
       const result = await pool.query(
         `SELECT id, original_filename AS "filename", mime_type AS "mimeType",
                 size_bytes AS "sizeBytes", status, merchant,
+                (extracted_text IS NOT NULL AND length(trim(extracted_text)) > 0) AS "hasExtractedText",
                 document_date AS "documentDate", amount_cents AS "amountCents",
                 currency, created_at AS "createdAt"
          FROM public.documents
@@ -154,7 +155,11 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
       const result = await pool.query(
         `UPDATE public.documents
          SET extracted_text=$3, merchant=$4, document_date=$5, amount_cents=$6,
-             status='ready', updated_at=now()
+             status=CASE WHEN
+               ((length(trim(coalesce($4::text,'')))>0 AND ($5::date IS NOT NULL OR $6::bigint IS NOT NULL))
+               OR ($5::date IS NOT NULL AND $6::bigint IS NOT NULL))
+               THEN 'ready' ELSE 'uploaded' END,
+             updated_at=now()
          WHERE owner_uid=$1 AND id=$2
          RETURNING id, original_filename AS "filename", mime_type AS "mimeType",
                    size_bytes AS "sizeBytes", status, merchant,

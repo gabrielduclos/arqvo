@@ -5,11 +5,11 @@
 ## Services and trust boundaries
 
 - **Client:** React/Vite under Cloudflare Workers Static Assets, `apps/web`.
-- **Edge API:** Worker `arqvo`, routing `/api/auth/*` and metadata requests to Render, handling private R2 uploads/downloads and optional Workers AI.
+- **Edge API:** Worker `arqvo`, routing `/api/auth/*` and metadata requests to Render, handling private R2 uploads/downloads and Workers AI extraction triggered by each upload.
 - **Identity/API:** Fastify on Render (`arqvo-api`) with Better Auth, email verification and owner-scoped PostgreSQL queries.
 - **Database:** independent Neon PostgreSQL `arqvo`; auth tables and additive migration [003_documents_live.sql](database/003_documents_live.sql) for `documents` and `ai_usage` (applied to Arqvo main on 2026-11-19).
 - **Original files:** R2 bucket `arqvo-documents` (private, no public hostname). Keys use an encoded account ID prefix plus a server-generated UUID.
-- **AI:** Cloudflare Workers AI binding, called only on demand.
+- **AI:** Cloudflare Workers AI binding, called automatically after successful uploads and on demand for retries or natural-language search.
 
 ## Upload path
 
@@ -20,9 +20,9 @@
 5. Owner-scoped `GET /api/documents` lists/searches records; `GET /api/documents/:id/file` revalidates the owner and streams the R2 object. `DELETE` removes metadata and then attempts to delete R2.
 6. The database constrains total records to the user's account in the application: currently 100 documents per account.
 
-## Optional AI flow
+## Automatic AI flow
 
-- A user explicitly chooses an AI analysis. The Worker retrieves their private document, uses `env.AI.toMarkdown()` to convert it to text, and a Workers AI text model to suggest the merchant, document date and amount. The extracted content and suggestions are saved in Neon under the authenticated owner.
+- After a successful upload, the browser automatically requests analysis. The Worker retrieves the private document and uses a Cloudflare vision/OCR model for JPEG/PNG/WebP or `env.AI.toMarkdown()` for PDF, then a text model to suggest merchant, date and amount. Partial/empty metadata no longer sets the document to `ready`. The extracted content and suggestions are saved in Neon under the authenticated owner.
 - Natural-language search sends the question (not the complete library) to a text model. Its structured filters are sanitized and passed as parameters to owner-scoped PostgreSQL queries. Monetary amounts written explicitly as BRL in questions are independently parsed into centavos.
 - Quotas are enforced using an atomic Neon table: 8 calls/account/day and 40 across all accounts/day.
 - The result is best-effort. AI conversion may not understand scanned or encrypted PDFs; values must be verified against the original.
@@ -32,7 +32,7 @@
 - Never share Uorqui database tables, cookies, R2 objects or secrets.
 - Document APIs require an authenticated **and email-verified** Better Auth session; mutation endpoints enforce same-origin headers.
 - Only PDF/JPEG/PNG/WebP uploads are accepted. MIME and signature are checked, documents are private, file responses disable caching and sniffing.
-- User data stays inside R2 and Neon until owner-initiated actions, except when AI processing was explicitly requested.
+- Original files remain private in R2; document content is also sent to Cloudflare Workers AI automatically after upload. Extracted text and metadata are stored in Neon. Processing can fail without deleting the original.
 - Model responses are **data**, never raw SQL, and the prompt treats document text as untrusted.
 - Accounts may be public but files have no public sharing route.
 - This is an MVP; **not end-to-end encrypted, audited or certified**. Full retention, backup, orphan cleanup, abuse control and account deletion need more work. See [privacy](../PRIVACY.md).
