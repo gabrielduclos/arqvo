@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.wrangler/
+.dev.vars
+.DS_Store
+# Private local data (not project icons or documentation screenshots)
+private-data/
+test-fixtures/private/

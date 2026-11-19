@@ -1,0 +1,19 @@
+# Optional Render Blueprint; never modifies Uorqui services.
+services:
+  - type: web
+    name: arqvo-api
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: apps/api
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /health/live
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
