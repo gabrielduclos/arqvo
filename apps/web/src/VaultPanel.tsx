@@ -3,11 +3,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowDownToLine, ArrowRight, CheckCircle2,
   FileImage, FilePlus2, FileText, FolderOpen, LoaderCircle,
-  Info, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
+  Info, Pencil, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
 } from 'lucide-react';
 import DocumentFilters, {
   type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
 } from './DocumentFilters';
+import { categoryLabel, categoryOptions } from './documentCategories';
 
 type Language = 'pt' | 'en';
 type Document = {
@@ -18,6 +19,8 @@ type Document = {
   status: 'uploaded' | 'ready' | 'failed';
   hasExtractedText?: boolean;
   merchant: string | null;
+  category?: string | null;
+  subcategory?: string | null;
   documentDate: string | null;
   amountCents: string | number | null;
   currency?: string;
@@ -30,7 +33,7 @@ const words = {
     title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos reais, privados e vinculados à sua conta.',
     upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
     uploadInfo: 'Informações do envio', uploadInfoHint: 'Formatos, limites e análise automática por IA',
-    processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar automaticamente estabelecimento, data e valor. O arquivo original será preservado; confira os dados extraídos.',
+    processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar estabelecimento, data, valor e categoria conforme os itens comprados. O arquivo original será preservado; confira os resultados.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
     find: 'Buscar', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.', aiQuestion: 'Pergunte à IA sobre seus documentos',
@@ -45,7 +48,8 @@ const words = {
     large: 'Arquivo muito grande. O limite é 8 MB.', type: 'Formato não aceito. Envie PDF, JPG, PNG ou WebP.',
     saved: 'Arquivo salvo. Iniciando extração automática…', extracted: 'Dados identificados. Confira as informações no documento original.',
     note: 'Valores extraídos por IA são sugestões e devem ser conferidos.', noResults: 'Nenhum documento encontrado.',
-    merchant: 'Estabelecimento', amount: 'Valor', date: 'Data', format: 'Formato',
+    merchant: 'Estabelecimento', category: 'Categoria', subcategory: 'Subcategoria', amount: 'Valor', date: 'Data', format: 'Formato',
+    editMetadata: 'Corrigir dados', saveMetadata: 'Salvar alterações', cancelEdit: 'Cancelar', savedMetadata: 'Informações atualizadas. Suas correções serão mantidas mesmo após nova análise.', unknownCategory: 'Não classificado',
     source: 'Arquivo original', close: 'Fechar', selected: 'Detalhes do documento', ocrText: 'Texto reconhecido na nota fiscal', ocrEmpty: 'Nenhum texto legível; tente uma foto mais nítida.',
     personal: 'Privado · somente sua conta', noAI: 'A análise acontece após o upload; você pode tentar novamente se faltarem informações.',
     billing: 'A IA pode consumir recursos da Cloudflare; os resultados devem ser conferidos.',
@@ -61,7 +65,7 @@ const words = {
     title: 'Documents', intro: 'Upload, search, preview and download real private documents linked to your account.',
     upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
     uploadInfo: 'Upload information', uploadInfoHint: 'Formats, limits and automatic AI extraction',
-    processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI automatically attempts to recognize the merchant, date and amount. Your original file is preserved; verify the extracted information.',
+    processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI attempts to identify the merchant, date, amount and category based on the purchased items. The original remains preserved; verify the results.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
     find: 'Search', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.', aiQuestion: 'Ask AI about your documents',
@@ -76,7 +80,8 @@ const words = {
     large: 'File is too large. Maximum is 8 MB.', type: 'Unsupported file. Choose PDF, JPG, PNG or WebP.',
     saved: 'File saved. Starting automatic extraction…', extracted: 'Details identified. Check the information against the original.',
     note: 'AI-extracted values are suggestions that must be checked.', noResults: 'No documents found.',
-    merchant: 'Merchant', amount: 'Amount', date: 'Date', format: 'Format',
+    merchant: 'Merchant', category: 'Category', subcategory: 'Subcategory', amount: 'Amount', date: 'Date', format: 'Format',
+    editMetadata: 'Correct details', saveMetadata: 'Save changes', cancelEdit: 'Cancel', savedMetadata: 'Details updated. Your corrections are retained after future AI analysis.', unknownCategory: 'Uncategorized',
     source: 'Original file', close: 'Close', selected: 'Document details', ocrText: 'Recognized invoice text', ocrEmpty: 'No readable text; try a sharper photo.',
     personal: 'Private · only your account', noAI: 'Analysis starts after upload. Retry if details are missing.',
     billing: 'AI processing uses Cloudflare resources; always verify extracted values.',
@@ -110,6 +115,9 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Document | null>(null);
+  const [editingMetadata, setEditingMetadata] = useState(false);
+  const [savingMetadata, setSavingMetadata] = useState(false);
+  const [metadataDraft, setMetadataDraft] = useState({ merchant: '', category: '', subcategory: '' });
   const [detailText, setDetailText] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -186,6 +194,41 @@ export default function VaultPanel({ language, email }: { language: Language; em
     const next = { ...filters, type: kind };
     applyFilters(next);
   }
+  useEffect(() => {
+    setEditingMetadata(false);
+    setMetadataDraft({
+      merchant: selected?.merchant || '',
+      category: selected?.category || '',
+      subcategory: selected?.subcategory || ''
+    });
+  }, [selected?.id, selected?.merchant, selected?.category, selected?.subcategory]);
+
+  async function saveMetadata(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected || savingMetadata) return;
+    setSavingMetadata(true);
+    setError('');
+    try {
+      const response = await fetch('/api/documents/' + selected.id + '/metadata', {
+        method: 'PATCH', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadataDraft),
+        signal: AbortSignal.timeout(45000)
+      });
+      const body = await parse(response);
+      if (!response.ok || !body.document) throw new Error(problem(body.error));
+      setSelected(old => old && old.id === selected.id ? { ...old, ...body.document } : old);
+      setDocs(old => old.map(doc => doc.id === selected.id ? { ...doc, ...body.document } : doc));
+      setEditingMetadata(false);
+      setMessage(t.savedMetadata);
+      void refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t.error);
+    } finally {
+      setSavingMetadata(false);
+    }
+  }
+
   useEffect(() => {
     setDetailText(null);
     if (!selected) return;
@@ -395,6 +438,10 @@ export default function VaultPanel({ language, email }: { language: Language; em
                     <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 py-0.5 text-left">
                       <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand">{doc.filename}</span>
                       <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
+                      {doc.category && <span className="mt-1 block truncate text-[11px] font-semibold text-brand">
+                        {categoryLabel(doc.category, language)}
+                        {doc.subcategory ? ' · ' + doc.subcategory : ''}
+                      </span>}
                       <span className={'mt-1.5 inline-block text-[11px] font-medium ' +
                         (doc.status === 'ready' ? 'text-emerald-600' : doc.hasExtractedText ? 'text-amber-700' : 'text-slate-400')}>
                         {workingId === doc.id ? t.extracting : doc.status === 'ready' ? t.scanned
@@ -478,9 +525,43 @@ export default function VaultPanel({ language, email }: { language: Language; em
           <div className="mt-5 grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 text-sm">
             <div><p className="text-xs text-slate-500">{t.merchant}</p><p className="mt-1 font-semibold">{selected.merchant || '—'}</p></div>
             <div><p className="text-xs text-slate-500">{t.amount}</p><p className="mt-1 font-semibold">{money(selected.amountCents)}</p></div>
-            <div><p className="text-xs text-slate-500">{t.date}</p><p className="mt-1 font-semibold">{date(selected.documentDate)}</p></div>
+            <div className="min-w-0"><p className="text-xs text-slate-500">{t.date}</p><p className="mt-1 font-semibold">{date(selected.documentDate)}</p></div>
+            <div className="min-w-0"><p className="text-xs text-slate-500">{t.category}</p>
+              <p className="mt-1 font-semibold">{categoryLabel(selected.category, language)}</p>
+              {selected.subcategory && <p className="mt-1 break-words text-xs text-slate-500">{selected.subcategory}</p>}
+            </div>
             <div><p className="text-xs text-slate-500">{t.format}</p><p className="mt-1 font-semibold">{selected.mimeType.split('/')[1]?.toUpperCase()}</p></div>
           </div>
+          <div className="mt-4">
+            <button type="button" onClick={() => setEditingMetadata(value => !value)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-brand hover:bg-brand-soft">
+              <Pencil size={16}/>{editingMetadata ? t.cancelEdit : t.editMetadata}
+            </button>
+          </div>
+          {editingMetadata && <form onSubmit={saveMetadata} className="mt-3 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+            <label className="block text-xs font-semibold text-slate-600" htmlFor="arqvo-edit-merchant">{t.merchant}</label>
+            <input id="arqvo-edit-merchant" type="text" maxLength={160}
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base outline-none focus:border-brand"
+              value={metadataDraft.merchant}
+              onChange={e => setMetadataDraft(d => ({...d, merchant:e.target.value}))}/>
+            <label className="block text-xs font-semibold text-slate-600" htmlFor="arqvo-edit-category">{t.category}</label>
+            <select id="arqvo-edit-category" className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base outline-none focus:border-brand"
+              value={metadataDraft.category}
+              onChange={e => setMetadataDraft(d => ({...d, category:e.target.value, subcategory:e.target.value ? d.subcategory : ''}))}>
+              <option value="">{t.unknownCategory}</option>
+              {categoryOptions(language).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <label className="block text-xs font-semibold text-slate-600" htmlFor="arqvo-edit-subcategory">{t.subcategory}</label>
+            <input id="arqvo-edit-subcategory" type="text" maxLength={80}
+              disabled={!metadataDraft.category}
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base outline-none focus:border-brand disabled:opacity-50"
+              value={metadataDraft.subcategory}
+              onChange={e => setMetadataDraft(d => ({...d, subcategory:e.target.value}))}/>
+            <button type="submit" disabled={savingMetadata}
+              className="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+              {savingMetadata ? t.processing : t.saveMetadata}
+            </button>
+          </form>}
           <details className="mt-5 rounded-xl border border-slate-200 p-4 text-sm">
             <summary className="cursor-pointer font-semibold text-slate-700">{t.ocrText}</summary>
             <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{detailText === null ? '…' : detailText || t.ocrEmpty}</pre>
