@@ -133,20 +133,20 @@ export default function OverviewPanel({ language, onOpenDocuments }: {
             <span className="flex size-10 items-center justify-center rounded-xl bg-white text-brand"><Sparkles size={20}/></span>
             <h2 className="mt-4 text-sm font-semibold">{t.ai}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">{t.aiDesc}</p>
-            <button onClick={onOpenDocuments} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
+            <button onClick={() => onOpenDocuments('all')} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
             <h2 className="text-lg font-semibold">{t.recent}</h2>
-            <button onClick={onOpenDocuments} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
+            <button onClick={() => onOpenDocuments('all')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand">{t.seeAll}<ArrowRight size={16}/></button>
           </div>
           {!docs.length ? <div className="px-5 py-12 text-center sm:px-6 sm:py-14">
             <FolderOpen className="mx-auto text-indigo-300" size={35}/>
             <h3 className="mt-3 text-sm font-semibold">{t.noDocs}</h3>
             <p className="mt-1 text-sm text-slate-500">{t.noDocsDescription}</p>
-          </div> : docs.slice(0, 5).map((doc, i) => <button key={doc.id} onClick={onOpenDocuments}
+          </div> : docs.slice(0, 5).map((doc, i) => <button key={doc.id} onClick={() => onOpenDocuments('all')}
             className={'flex w-full min-w-0 items-center gap-3 px-4 py-4 text-left transition sm:gap-4 sm:px-5 hover:bg-indigo-50/60 ' + (i ? 'border-t border-slate-100' : '')}>
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-brand">{doc.mimeType === 'application/pdf' ? <FileText size={21}/> : <FileImage size={21}/>}</span>
             <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{doc.filename}</span><span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)}</span></span>
