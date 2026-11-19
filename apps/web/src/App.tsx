@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LoaderCircle, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Archive, ArrowRight, ChevronDown, FileText, FolderLock, LayoutDashboard, LoaderCircle, LogOut, Menu, ShieldCheck, Sparkles } from 'lucide-react';
 import AuthPanel, { type AuthStatus, type Profile } from './AuthPanel';
 import VaultPanel from './VaultPanel';
 import OverviewPanel from './OverviewPanel';
@@ -39,6 +40,9 @@ const copy = {
 export default function App() {
   const [language, setLanguage] = useState<Language>('pt');
   const [section, setSection] = useState<Section>('overview');
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const chooseSection = (next: Section) => { setSection(next); setMobileMenu(false); };
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [user, setUser] = useState<Profile | null>(null);
   const [checking, setChecking] = useState(true);
@@ -83,7 +87,7 @@ export default function App() {
       });
       if (!response.ok) throw new Error('Sign out failed');
       setUser(null);
-      setSection('overview');
+      chooseSection('overview');
     } catch {
       setConnectionError(true);
     } finally {
@@ -101,98 +105,133 @@ export default function App() {
     {language === 'pt' ? 'PT-BR' : 'EN'}<ChevronDown size={14}/>
   </button>;
 
-  if (checking) return <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas">
-    {logo}<LoaderCircle size={24} className="animate-spin text-brand"/>
-    <p className="text-sm text-slate-500">{t.loading}</p>
-  </div>;
 
-  if (!user && (connectionError || !authStatus)) return <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-    {logo}
-    <div className="mt-7 max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-      <ShieldCheck size={28} className="mx-auto text-brand"/>
-      <p className="mt-4 text-sm text-slate-600">{t.unavailable}</p>
-      <button onClick={() => setReload(x => x + 1)} className="mt-5 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white">{t.retry}</button>
-    </div>
-  </div>;
+  const nav = (key: Section, label: string, Icon: typeof LayoutDashboard) => (
+    <button onClick={() => chooseSection(key)}
+      aria-current={section === key ? 'page' : undefined}
+      className={'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ' +
+        (section === key ? 'bg-brand-soft text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900')}>
+      <Icon size={18} strokeWidth={1.9}/>{label}
+    </button>
+  );
+  const enter = reducedMotion ? {} : { opacity: 0, y: 12 };
+  const leave = reducedMotion ? {} : { opacity: 0, y: -8 };
 
-  if (!user) return <div className="min-h-screen bg-canvas">
-    <header className="border-b border-slate-200/70 bg-white">
-      <div className="mx-auto flex h-[76px] max-w-[1260px] items-center justify-between gap-4 px-5 sm:px-8">
-        {logo}
-        <div className="flex items-center gap-4">{languageButton}
-          <a href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'}
-            target="_blank" rel="noreferrer" className="hidden text-xs font-semibold text-slate-500 hover:text-brand sm:block">{t.privacy}</a>
-        </div>
+  return <AnimatePresence mode="wait">
+    {checking ? <motion.div key="splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="flex min-h-screen flex-col items-center justify-center bg-canvas" aria-live="polite">
+      <div className="flex items-center gap-3 text-brand">
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-brand text-white"><Archive size={25}/></div>
+        <span className="text-3xl font-semibold tracking-tight">arqvo<span className="text-brand">.</span></span>
       </div>
-    </header>
-    <main className="mx-auto grid min-h-[calc(100vh-76px)] max-w-[1260px] lg:grid-cols-[1fr_470px]">
-      <div className="relative hidden overflow-hidden px-12 py-20 lg:flex lg:flex-col lg:justify-center">
-        <div className="absolute left-24 top-12 size-64 rounded-full bg-indigo-200/50 blur-3xl" aria-hidden="true"/>
-        <div className="relative max-w-lg">
-          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-xs font-semibold text-brand"><Sparkles size={15}/>{t.heroTag}</div>
-          <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.055em] text-ink">{t.hero}</h1>
-          <p className="mt-6 max-w-md text-base leading-8 text-slate-500">{t.subtitle}</p>
-          <div className="mt-10 space-y-7">
-            {[
-              { icon: FolderLock, name: t.step1, detail: t.detail1 },
-              { icon: Sparkles, name: t.step2, detail: t.detail2 },
-              { icon: ArrowRight, name: t.step3, detail: t.detail3 }
-            ].map(({ icon: Icon, name, detail }) => <div key={name} className="flex gap-4">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand shadow-sm"><Icon size={20}/></span>
-              <div><h2 className="text-sm font-semibold">{name}</h2><p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">{detail}</p></div>
-            </div>)}
+      <div className="mt-8 h-1 w-36 overflow-hidden rounded-full bg-indigo-100" role="progressbar" aria-label="Carregando Arqvo">
+        <motion.div className="h-full w-12 rounded-full bg-brand" initial={{ x: -48 }}
+          animate={{ x: 144 }} transition={{ duration: .8, ease: 'easeInOut', repeat: Infinity }}/>
+      </div>
+      <p className="mt-4 text-xs text-slate-400">{t.loading}</p>
+    </motion.div> : !user && (connectionError || !authStatus) ?
+    <motion.div key="error" initial={enter} animate={{ opacity: 1, y: 0 }} exit={leave}
+      className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+      {logo}
+      <div className="mt-7 max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+        <ShieldCheck size={28} className="mx-auto text-brand"/>
+        <p className="mt-4 text-sm text-slate-600">{t.unavailable}</p>
+        <button onClick={() => setReload(x => x + 1)}
+          className="mt-5 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white">{t.retry}</button>
+      </div>
+    </motion.div> : !user ?
+    <motion.div key="login" initial={enter} animate={{ opacity: 1, y: 0 }} exit={leave} className="min-h-screen bg-canvas">
+      <header className="border-b border-slate-200/70 bg-white">
+        <div className="mx-auto flex h-[72px] max-w-[1520px] items-center justify-between gap-4 px-5 sm:px-8">
+          {logo}
+          <div className="flex items-center gap-4">{languageButton}
+            <a href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'}
+              target="_blank" rel="noreferrer" className="hidden text-xs font-semibold text-slate-500 hover:text-brand sm:block">{t.privacy}</a>
           </div>
         </div>
-        <div className="relative mt-14 max-w-md border-t border-slate-200 pt-5 text-xs leading-5 text-slate-400">{t.beta}</div>
-      </div>
-      <div className="flex items-center justify-center px-5 py-9 sm:px-8 lg:py-14">
-        <AuthPanel language={language} status={authStatus!}
-          onAuthChange={(profile) => { setUser(profile); setSection('overview'); }} />
-      </div>
-    </main>
-  </div>;
-
-  return <div className="min-h-screen bg-canvas">
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between gap-4 px-5 sm:px-8">
-        {logo}
-        <nav aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'} className="hidden items-center gap-1 rounded-2xl bg-slate-100 p-1 md:flex">
-          <button onClick={() => setSection('overview')} aria-current={section === 'overview' ? 'page' : undefined}
-            className={'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ' + (section === 'overview' ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-            <LayoutDashboard size={17}/>{t.overview}
-          </button>
-          <button onClick={() => setSection('documents')} aria-current={section === 'documents' ? 'page' : undefined}
-            className={'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ' + (section === 'documents' ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-            <FileText size={17}/>{t.documents}
-          </button>
-        </nav>
-        <div className="flex items-center gap-3">
-          <div className="hidden text-right lg:block"><p className="text-xs font-semibold text-slate-700">{user.name}</p><p className="text-[11px] text-slate-400">{user.email}</p></div>
-          {languageButton}
-          <button onClick={signOut} disabled={signingOut} title={t.logout} aria-label={t.logout}
-            className="flex size-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50">
-            {signingOut ? <LoaderCircle size={17} className="animate-spin"/> : <LogOut size={18}/>}
-          </button>
+      </header>
+      <main className="mx-auto grid min-h-[calc(100vh-72px)] max-w-[1260px] lg:grid-cols-[1fr_470px]">
+        <div className="relative hidden overflow-hidden px-12 py-20 lg:flex lg:flex-col lg:justify-center">
+          <div className="absolute left-24 top-12 size-64 rounded-full bg-indigo-200/50 blur-3xl" aria-hidden="true"/>
+          <div className="relative max-w-lg">
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-xs font-semibold text-brand"><Sparkles size={15}/>{t.heroTag}</div>
+            <h1 className="text-5xl font-semibold leading-[1.13] tracking-[-0.055em] text-ink">{t.hero}</h1>
+            <p className="mt-6 max-w-md text-base leading-8 text-slate-500">{t.subtitle}</p>
+            <div className="mt-10 space-y-7">
+              {[
+                { icon: FolderLock, name: t.step1, detail: t.detail1 },
+                { icon: Sparkles, name: t.step2, detail: t.detail2 },
+                { icon: ArrowRight, name: t.step3, detail: t.detail3 }
+              ].map(({ icon: Icon, name, detail }) => <div key={name} className="flex gap-4">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand shadow-sm"><Icon size={20}/></span>
+                <div><h2 className="text-sm font-semibold">{name}</h2><p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">{detail}</p></div>
+              </div>)}
+            </div>
+          </div>
+          <div className="relative mt-14 max-w-md border-t border-slate-200 pt-5 text-xs leading-5 text-slate-400">{t.beta}</div>
         </div>
+        <div className="flex items-center justify-center px-5 py-9 sm:px-8 lg:py-14">
+          <AuthPanel language={language} status={authStatus!}
+            onAuthChange={(profile) => { setUser(profile); chooseSection('overview'); }} />
+        </div>
+      </main>
+    </motion.div> :
+    <motion.div key="app" initial={reducedMotion ? {} : { opacity: 0 }} animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }} className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex h-[72px] max-w-[1520px] items-center justify-between gap-4 px-5 sm:px-8">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenu(v => !v)} aria-label={language === 'pt' ? 'Abrir menu' : 'Open menu'}
+              className="rounded-lg p-1 text-slate-600 md:hidden"><Menu size={23}/></button>
+            <button onClick={() => chooseSection('overview')} aria-label="Arqvo home">
+              {logo}
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden max-w-52 truncate text-xs font-medium text-slate-500 lg:inline">{user.name}</span>
+            <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer"
+              className="hidden items-center gap-1.5 text-sm text-slate-500 hover:text-brand sm:inline-flex">Open source<ArrowRight size={15}/></a>
+            {languageButton}
+            <button onClick={signOut} disabled={signingOut} aria-label={t.logout} title={t.logout}
+              className="rounded-xl border border-slate-200 p-2.5 text-slate-500 transition hover:text-red-500 disabled:opacity-50"><LogOut size={18}/></button>
+          </div>
+        </div>
+      </header>
+      <div className="mx-auto flex max-w-[1520px]">
+        <aside className={(mobileMenu ? 'fixed inset-x-0 top-[72px] z-20 block shadow-lg' : 'hidden') +
+          ' w-full border-b border-slate-200 bg-white px-5 py-8 md:sticky md:top-[72px] md:block md:h-[calc(100vh-72px)] md:w-[252px] md:shrink-0 md:border-b-0 md:border-r md:px-6 md:shadow-none'}>
+          <p className="mb-5 px-4 text-[11px] font-bold uppercase tracking-[.16em] text-slate-400">{language === 'pt' ? 'Seu espaço' : 'Your space'}</p>
+          <nav className="space-y-2" aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'}>
+            {nav('overview', t.overview, LayoutDashboard)}
+            {nav('documents', t.documents, FileText)}
+          </nav>
+          <div className="mt-10 rounded-2xl bg-indigo-50 p-4">
+            <span className="mb-3 flex size-9 items-center justify-center rounded-xl bg-white text-brand"><ShieldCheck size={19}/></span>
+            <p className="text-sm font-bold">{language === 'pt' ? 'Documentos privados' : 'Private documents'}</p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">{language === 'pt'
+              ? 'Os documentos são acessados apenas com sua conta. Confira os dados extraídos pela IA no original.'
+              : 'Documents are accessed through your account only. Check AI-extracted data against the original.'}</p>
+          </div>
+          <p className="mt-6 px-2 text-[11px] leading-relaxed text-slate-400">{user.email}</p>
+        </aside>
+        <main className="min-w-0 flex-1 px-5 pb-14 pt-8 sm:px-8 lg:px-12 lg:pt-12">
+          {connectionError && <div role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t.unavailable}</div>}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={section} initial={reducedMotion ? {} : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? {} : { opacity: 0, y: -8 }}
+              transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
+              {section === 'overview'
+                ? <OverviewPanel language={language} onOpenDocuments={() => chooseSection('documents')}/>
+                : <VaultPanel language={language} email={user.email}/>}
+            </motion.div>
+          </AnimatePresence>
+          <footer className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400">
+            <span>© 2026 Arqvo · MIT · {t.beta}</span>
+            <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-brand">{t.powered}<ArrowRight size={13}/></a>
+          </footer>
+        </main>
       </div>
-    </header>
-    <nav aria-label={language === 'pt' ? 'Navegação principal' : 'Main navigation'} className="flex gap-2 border-b border-slate-200 bg-white px-5 py-3 md:hidden">
-      <button onClick={() => setSection('overview')} aria-current={section === 'overview' ? 'page' : undefined}
-        className={'inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ' + (section === 'overview' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
-        <LayoutDashboard size={17}/>{t.overview}
-      </button>
-      <button onClick={() => setSection('documents')} aria-current={section === 'documents' ? 'page' : undefined}
-        className={'inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ' + (section === 'documents' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
-        <FileText size={17}/>{t.documents}
-      </button>
-    </nav>
-    {connectionError && <div role="alert" className="mx-auto mt-4 max-w-[1200px] rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t.unavailable}</div>}
-    <main className="mx-auto max-w-[1200px] px-5 py-9 sm:px-8 lg:py-12">
-      {section === 'overview' ? <OverviewPanel language={language} onOpenDocuments={() => setSection('documents')}/>
-        : <VaultPanel language={language} email={user.email}/>}
-    </main>
-    <footer className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-3 border-t border-slate-200 px-5 py-6 text-xs text-slate-400 sm:px-8">
-      <span>{t.beta}</span><span>{t.powered}</span>
-    </footer>
-  </div>;
+    </motion.div>}
+  </AnimatePresence>;
 }
