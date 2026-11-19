@@ -62,7 +62,7 @@ async function fromBackend(
   if (cookie) headers.set('cookie', cookie);
   if (method !== 'GET') {
     headers.set('origin', new URL(request.url).origin);
-    headers.set('content-type', 'application/json');
+    if (payload !== undefined) headers.set('content-type', 'application/json');
   }
   return fetch(apiUrl(env, path), {
     method, headers, redirect: 'manual',

@@ -133,7 +133,7 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       assert.equal(quota.statusCode, 200, quota.body);
       const deleted = await app.inject({
         method: 'DELETE', url: '/api/documents/' + id,
-        headers: { ...headers, cookie }
+        headers: { origin: 'http://localhost:5173', cookie }
       });
       assert.equal(deleted.statusCode, 200, deleted.body);
       const removed = await app.inject({
