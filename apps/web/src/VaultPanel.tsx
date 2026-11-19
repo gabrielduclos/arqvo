@@ -97,6 +97,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const fileRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Document[]>([]);
   const [fileKind, setFileKind] = useState<'all' | 'pdf' | 'image'>('all');
+  const [mobileSearch, setMobileSearch] = useState<'keyword' | 'ai'>('keyword');
   const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -260,14 +261,14 @@ export default function VaultPanel({ language, email }: { language: Language; em
   }
 
   return (
-    <section className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <section className="min-w-0 space-y-5 sm:space-y-7">
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-brand"><ShieldCheck size={15}/>{t.personal}</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t.title}</h1>
+          <h1 className="text-[29px] font-semibold tracking-tight sm:text-4xl">{t.title}</h1>
           <p className="mt-2 text-sm text-slate-500">{t.intro}</p>
         </div>
-        <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60">
+        <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 sm:w-auto">
           {busy ? <LoaderCircle size={17} className="animate-spin"/> : <FilePlus2 size={17}/>}
           {busy ? t.processing : t.upload}
         </button>
@@ -277,12 +278,12 @@ export default function VaultPanel({ language, email }: { language: Language; em
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={19}/>{error}<button aria-label={t.clear} onClick={() => setError('')} className="ml-auto"><X size={18}/></button></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700"><CheckCircle2 size={19}/>{message}<button aria-label={t.clear} onClick={() => setMessage('')} className="ml-auto"><X size={18}/></button></div>}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
           <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-brand"><LockKeyhole size={20}/></span>
             <div><h2 className="text-sm font-semibold">{t.drop}</h2><p className="text-xs text-slate-500">{t.formats}</p></div>
           </div>
-          <button onClick={() => fileRef.current?.click()} disabled={busy} className="rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-brand hover:bg-indigo-50">{t.upload}</button>
+          <button onClick={() => fileRef.current?.click()} disabled={busy} className="hidden min-h-11 items-center rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-brand hover:bg-indigo-50 sm:inline-flex">{t.upload}</button>
         </div>
         <div className="mt-5 border-t border-slate-100 pt-4">
           <div className="flex items-start gap-3">
@@ -293,25 +294,38 @@ export default function VaultPanel({ language, email }: { language: Language; em
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={searchText} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden" role="group"
+        aria-label={language === 'pt' ? 'Modo de pesquisa' : 'Search mode'}>
+        <button type="button" onClick={() => setMobileSearch('keyword')}
+          className={'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ' +
+            (mobileSearch === 'keyword' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
+          <Search size={17}/>{t.find}
+        </button>
+        <button type="button" onClick={() => setMobileSearch('ai')}
+          className={'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ' +
+            (mobileSearch === 'ai' ? 'bg-brand-soft text-brand' : 'text-slate-500')}>
+          <Sparkles size={17}/>{t.askAI}
+        </button>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
+        <form onSubmit={searchText} className={"min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 " + (mobileSearch === "keyword" ? "block" : "hidden lg:block")}>
           <div className="flex items-center gap-2"><Search className="text-brand" size={20}/><h2 className="text-sm font-semibold">{t.query}</h2></div>
-          <div className="mt-4 flex gap-2"><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t.queryPlaceholder}
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand"/>
-            <button type="submit" className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
+          <div className="mt-4 flex min-w-0 gap-2"><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t.queryPlaceholder}
+            className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm"/>
+            <button type="submit" className="min-h-12 shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2" aria-label={language === 'pt' ? 'Tipo de documento' : 'Document type'}>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 sm:mt-5 sm:flex-wrap" aria-label={language === 'pt' ? 'Tipo de documento' : 'Document type'}>
             {(['all', 'pdf', 'image'] as const).map(kind => <button key={kind} type="button" onClick={() => setFileKind(kind)}
-              className={'rounded-full border px-4 py-2 text-xs font-semibold transition ' + (fileKind === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
+              className={'min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ' + (fileKind === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
               {kind === 'all' ? t.all : kind === 'pdf' ? t.pdf : t.images}
             </button>)}
           </div>
         </form>
-        <form onSubmit={searchWithAI} className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5">
+        <form onSubmit={searchWithAI} className={"min-w-0 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 sm:p-5 " + (mobileSearch === "ai" ? "block" : "hidden lg:block")}>
           <div className="flex items-center gap-2"><Sparkles className="text-brand" size={20}/><h2 className="text-sm font-semibold">{t.aiQuestion}</h2></div>
-          <div className="mt-4 flex gap-2"><input value={aiQuestion} maxLength={220} onChange={e => setAiQuestion(e.target.value)} placeholder={t.aiPlaceholder}
-            className="min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"/>
-            <button type="submit" disabled={aiSearch || !aiQuestion.trim()} className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          <div className="mt-4 flex min-w-0 gap-2"><input value={aiQuestion} maxLength={220} onChange={e => setAiQuestion(e.target.value)} placeholder={t.aiPlaceholder}
+            className="min-h-12 min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2.5 text-base outline-none focus:border-brand sm:text-sm"/>
+            <button type="submit" disabled={aiSearch || !aiQuestion.trim()} aria-label={t.askAI} className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               {aiSearch ? <LoaderCircle size={16} className="animate-spin"/> : <ArrowRight size={16}/>}
               <span className="hidden sm:inline">{t.askAI}</span>
             </button>
@@ -330,27 +344,42 @@ export default function VaultPanel({ language, email }: { language: Language; em
             <FolderOpen size={32} className="mx-auto text-indigo-300"/><h3 className="mt-4 font-semibold">{mode === 'all' ? t.empty : t.noResults}</h3><p className="mt-1 text-sm text-slate-500">{mode === 'all' ? t.emptySub : ''}</p></div>
             : <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {listedDocs.map((doc, index) => (
-                <div key={doc.id} className={'flex flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap sm:px-5 ' + (index ? 'border-t border-slate-100' : '')}>
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-brand">{doc.mimeType === 'application/pdf' ? <FileText size={21}/> : <FileImage size={21}/>}</span>
-                  <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand">{doc.filename}</span>
-                    <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
-                    <span className={'mt-1 inline-block text-[11px] font-medium ' + (doc.status === 'ready' ? 'text-emerald-600' : doc.hasExtractedText ? 'text-amber-700' : 'text-slate-400')}>
-                      {workingId === doc.id ? t.extracting : doc.status === 'ready' ? t.scanned
-                        : doc.merchant || doc.documentDate || doc.amountCents != null ? t.partial
-                        : doc.hasExtractedText ? t.textOnly : t.pending}
+                <div key={doc.id} className={'min-w-0 px-4 py-4 sm:flex sm:items-center sm:gap-4 sm:px-5 ' + (index ? 'border-t border-slate-100' : '')}>
+                  <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-brand">
+                      {doc.mimeType === 'application/pdf' ? <FileText size={21}/> : <FileImage size={21}/>}
                     </span>
-                  </button>
-                  <span className="shrink-0 text-right text-sm font-semibold">{money(doc.amountCents)}</span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button title={t.analyze} aria-label={t.analyze} disabled={!!workingId || busy} onClick={() => void analyze(doc.id)} className="rounded-lg p-2 text-brand transition hover:bg-indigo-50 disabled:opacity-40">
+                    <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 py-0.5 text-left">
+                      <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand">{doc.filename}</span>
+                      <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
+                      <span className={'mt-1.5 inline-block text-[11px] font-medium ' +
+                        (doc.status === 'ready' ? 'text-emerald-600' : doc.hasExtractedText ? 'text-amber-700' : 'text-slate-400')}>
+                        {workingId === doc.id ? t.extracting : doc.status === 'ready' ? t.scanned
+                          : doc.merchant || doc.documentDate || doc.amountCents != null ? t.partial
+                          : doc.hasExtractedText ? t.textOnly : t.pending}
+                      </span>
+                    </button>
+                    <span className="max-w-24 shrink-0 pt-1 text-right text-xs font-semibold tabular-nums text-slate-800 sm:hidden">
+                      {money(doc.amountCents)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-end gap-1 border-t border-slate-100 pt-2 sm:mt-0 sm:gap-2 sm:border-0 sm:pt-0">
+                    <span className="mr-2 hidden shrink-0 text-right text-sm font-semibold tabular-nums sm:block">{money(doc.amountCents)}</span>
+                    <button title={t.analyze} aria-label={t.analyze} disabled={!!workingId || busy}
+                      onClick={() => void analyze(doc.id)} className="flex size-11 items-center justify-center rounded-xl text-brand transition hover:bg-indigo-50 disabled:opacity-40">
                       {workingId === doc.id ? <LoaderCircle size={19} className="animate-spin"/> : <Sparkles size={19}/>}
                     </button>
-                    <a href={fileLink(doc.id, true)} title={t.download} aria-label={t.download} className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-50"><ArrowDownToLine size={19}/></a>
-                    <button title={t.delete} aria-label={t.delete} disabled={!!workingId} onClick={() => void remove(doc)} className="rounded-lg p-2 text-red-400 transition hover:bg-red-50 disabled:opacity-40"><Trash2 size={19}/></button>
+                    <a href={fileLink(doc.id, true)} title={t.download} aria-label={t.download}
+                      className="flex size-11 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-50">
+                      <ArrowDownToLine size={19}/>
+                    </a>
+                    <button title={t.delete} aria-label={t.delete} disabled={!!workingId}
+                      onClick={() => void remove(doc)} className="flex size-11 items-center justify-center rounded-xl text-red-400 transition hover:bg-red-50 disabled:opacity-40">
+                      <Trash2 size={19}/>
+                    </button>
                   </div>
                 </div>
-              ))}
+
             </div>}
         <p className="mt-4 text-xs leading-relaxed text-slate-400">{t.note} {t.original} {t.billing}</p>
         <p className="mt-2 text-xs font-medium text-amber-700">{t.betaWarning}</p>
@@ -358,13 +387,13 @@ export default function VaultPanel({ language, email }: { language: Language; em
       </div>
 
       <AnimatePresence>
-      {selected && <motion.div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[2px] sm:items-center"
+      {selected && <motion.div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-3"
         initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
         onMouseDown={e => {if (e.target === e.currentTarget) setSelected(null);}}>
-        <motion.div role="dialog" aria-modal="true" aria-label={t.selected} className="max-h-[90vh] w-full max-w-[540px] overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl sm:p-8"
+        <motion.div role="dialog" aria-modal="true" aria-label={t.selected} className="max-h-[92dvh] w-full max-w-[540px] overflow-y-auto overscroll-contain rounded-t-[28px] bg-white px-5 pt-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] shadow-2xl sm:max-h-[90vh] sm:rounded-[26px] sm:p-8"
           initial={reducedMotion ? {} : {opacity: 0, y: 30}} animate={{opacity: 1, y: 0}} exit={reducedMotion ? {} : {opacity: 0, y: 20}}>
-          <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-brand">{t.personal}</span><button aria-label={t.close} onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={20}/></button></div>
-          <div className="mt-5 flex h-48 flex-col items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50">
+          <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-brand">{t.personal}</span><button aria-label={t.close} onClick={() => setSelected(null)} className="flex size-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><X size={20}/></button></div>
+          <div className="mt-4 flex h-56 flex-col items-center justify-center sm:mt-5 sm:h-48 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50">
             {selected.mimeType.startsWith('image/') ? <img className="h-full w-full object-contain" alt={selected.filename} src={fileLink(selected.id)}/>
               : <><FileText size={42} className="text-brand"/><span className="mt-3 text-xs text-slate-500">PDF</span></>}
           </div>
@@ -379,9 +408,9 @@ export default function VaultPanel({ language, email }: { language: Language; em
             <summary className="cursor-pointer font-semibold text-slate-700">{t.ocrText}</summary>
             <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">{detailText === null ? '…' : detailText || t.ocrEmpty}</pre>
           </details>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <a href={fileLink(selected.id, true)} className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white"><ArrowDownToLine size={17}/>{t.download}</a>
-            <button onClick={() => void analyze(selected.id)} disabled={!!workingId} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-4 py-3 text-sm font-semibold text-brand disabled:opacity-50"><Sparkles size={16}/>{workingId === selected.id ? t.analyzing : t.analyze}</button>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <a href={fileLink(selected.id, true)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white"><ArrowDownToLine size={17}/>{t.download}</a>
+            <button onClick={() => void analyze(selected.id)} disabled={!!workingId} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-indigo-200 px-4 py-3 text-sm font-semibold text-brand disabled:opacity-50"><Sparkles size={16}/>{workingId === selected.id ? t.analyzing : t.analyze}</button>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-slate-500">{t.note} {t.noAI}</p>
         </motion.div>
