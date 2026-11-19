@@ -24,8 +24,8 @@ interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
 }
 
-const LIMIT_BYTES = 8 * 1024 * 1024;
-const ANALYSIS_BYTES = 8 * 1024 * 1024;
+const LIMIT_BYTES = 20 * 1024 * 1024;
+const ANALYSIS_BYTES = 20 * 1024 * 1024;
 const MIME = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const json = (body: object, status = 200): Response => Response.json(body, {
