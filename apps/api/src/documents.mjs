@@ -192,33 +192,5 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
     }
   });
 
-  app.post('/api/ai/consume', async (request, reply) => {
-    const userId = await requireSession(request, reply);
-    if (!userId || !requireOrigin(request, reply)) return;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const today = `(now() AT TIME ZONE 'UTC')::date`;
-      for (const [owner, limit] of [['__global__', 40], [userId, 8]]) {
-        const result = await client.query(
-          `INSERT INTO public.ai_usage(owner_uid,usage_day,used) VALUES ($1,${today},1)
-           ON CONFLICT(owner_uid,usage_day) DO UPDATE SET used=public.ai_usage.used+1
-           WHERE public.ai_usage.used < $2 RETURNING used`,
-          [owner, limit]
-        );
-        if (!result.rowCount) {
-          await client.query('ROLLBACK');
-          return sendError(reply, 429, 'ai_daily_limit');
-        }
-      }
-      await client.query('COMMIT');
-      return { allowed: true };
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      request.log.error({ err }, 'AI quota failed');
-      return sendError(reply, 503, 'ai_unavailable');
-    } finally {
-      client.release();
-    }
-  });
+
 }
