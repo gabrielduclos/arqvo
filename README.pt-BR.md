@@ -16,7 +16,7 @@ O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas
 
 - Cadastro e login com Better Auth, confirmação obrigatória de e-mail e recuperação de senha pelo Resend.
 - Envio de PDF/JPG/PNG/WebP ao Cloudflare R2 privado, com verificação do conteúdo e limites de 8 MB por arquivo e 100 documentos por conta.
-- Download do original, prévia de imagens, listagem, pesquisa, exclusão e metadados estruturados no PostgreSQL.
+- Download do original, prévia de imagens, listagem, pesquisa avançada (estabelecimento, datas, valores, tipo, análise e ordenação), exclusão e metadados estruturados no PostgreSQL. Informações de envio acessíveis pelo ícone ⓘ.
 - **Análise automática com IA:** após o upload, Cloudflare Workers AI tenta extrair texto e sugerir estabelecimento, data e valor em reais. Fotos JPEG/PNG/WebP usam modelo visual/OCR; o tratamento é informado antes do envio. Confira os resultados com o documento original.
 - **Busca por linguagem natural:** a IA transforma a pergunta em filtros seguros; o Neon retorna somente documentos do proprietário autenticado.
 - Interface em português/inglês, responsiva e com testes automatizados.

@@ -17,6 +17,7 @@
 - Área principal mobile-first com padding lateral de 16px no celular e espaço inferior suficiente para o footer fixo, sem encobrir documentos ou ações. Desktop com conteúdo centralizado em largura máxima.
 - Visão geral: banner roxo escuro arredondado (24px mobile/28px desktop), CTA adaptativo e **indicadores reais em grade de duas colunas no celular**, com densidade maior e sem overflow; documentos recentes compactos.
 - Documentos: CTA de upload de largura total no celular, pesquisa normal/IA em abas compactas, filtros em pills roláveis horizontalmente, cartões com valor, status e **alvos táteis mínimos de 44px** para reanalisar/baixar/excluir. Modal de documento funciona como bottom sheet no mobile.
+- **Informações de upload:** o card fixo de formatos/limites/IA foi substituído por ícone circular **ⓘ** junto ao título Documentos. Toque para abrir detalhes em bottom sheet; o aviso sobre processamento com IA continua acessível.
 - Não exibir dados fictícios, mesmo usando esse protótipo como base visual.
 
 ## Transições originais — requisito
@@ -41,3 +42,8 @@
 - Somente documentos e métricas reais, com animações preservadas.
 
 [English](ui-kit.md)
+
+## Filtro avançado — documentos
+- Botão **Filtros** com contador de critérios ativos.
+- Painel mobile com estabelecimento, tipo PDF/imagem, situação da extração, período (data de emissão ou envio), valor mínimo/máximo e ordenação.
+- Filtros combináveis consultados no Neon por proprietário; busca por IA respeita as restrições explícitas.

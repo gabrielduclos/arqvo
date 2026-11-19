@@ -16,7 +16,7 @@
 
 - Email/password signup and sign-in with Better Auth, mandatory email verification and password reset (Resend).
 - Owner-scoped PDF/JPG/PNG/WebP upload to private Cloudflare R2, with magic-byte checks, 8 MB/file and 100 documents/account limits.
-- Original-file download, image preview, document listing, search, deletion and structured metadata in PostgreSQL.
+- Original-file download, image preview, advanced filtering (merchant, dates, amounts, type, extraction status, sorting), deletion and structured metadata in PostgreSQL. Upload information is accessible via an ⓘ icon.
 - **Automatic AI analysis:** after each upload, Cloudflare Workers AI attempts to read the document and suggests merchant, date and amount in BRL; JPEG/PNG/WebP use a vision/OCR model. The upload screen explains this processing. AI suggestions can be wrong, so always compare them to the original.
 - **Natural-language search:** AI interprets the query into safe filters, while PostgreSQL retrieves only the signed-in user's matching documents.
 - Portuguese/English interface, responsive layout and automated integration tests.

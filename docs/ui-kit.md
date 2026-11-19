@@ -18,6 +18,7 @@
 - Mobile-first content with 16px horizontal padding and extra bottom spacing so the fixed footer never obscures content. Desktop uses a centered max-width container.
 - Overview: deep-purple hero rounded 24px mobile/28px desktop, responsive CTA, **real KPI cards in a compact two-column mobile grid**, recent real documents below.
 - Documents: full-width upload CTA on mobile, separate keyword/AI modes in a compact segmented switch, horizontal filter pills, touch-friendly document cards, and a mobile bottom-sheet preview.
+- **Upload guidance:** the tall permanent information card was replaced with a compact circular **ⓘ** next to Documents. Tapping opens an accessible modal/bottom sheet with file format, size and automatic AI processing details.
 - Both screens use **real Neon account data only**, with an actual upload control. Preserve the visual structure without restoring static document arrays.
 
 ## Motion (do not regress)
@@ -42,3 +43,9 @@ If future instructions change data flows, API, components or AI behavior, keep t
 - 64px mobile header, 72px desktop header, safe area footer and tap-friendly controls.
 - Compact mobile real-data overview, split search modes, scrollable filter pills, document action rows and bottom sheet.
 - Inputs use 16px font size on small phones to prevent iOS focus zoom.
+
+
+## Advanced document filters
+- **Filters** button with an active-filter count.
+- Mobile panel with merchant, PDF/image, extraction status, date range (document or upload), min/max BRL amount and sorting.
+- Combined filters execute against owner-scoped Neon queries; AI search honors explicit constraints.
