@@ -251,6 +251,48 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       });
       assert.equal(removed.statusCode, 404);
 
+      // Profile password change uses Better Auth's authenticated endpoint.
+      // A wrong current password must not change credentials.
+      const wrongCurrent = await app.inject({
+        method: 'POST', url: '/api/auth/change-password',
+        headers: { ...headers, cookie },
+        payload: { currentPassword: 'wrong-password', newPassword: 'Bz8!y6mR', revokeOtherSessions: true }
+      });
+      assert.notEqual(wrongCurrent.statusCode, 200, 'Wrong current password must be rejected');
+
+      // Create a second session to verify revokeOtherSessions behaviour.
+      const secondLogin = await app.inject({
+        method: 'POST', url: '/api/auth/sign-in/email', headers,
+        payload: { email, password: 'Aq7!x9pQ' }
+      });
+      assert.equal(secondLogin.statusCode, 200, secondLogin.body);
+      const secondSetCookie = secondLogin.headers['set-cookie'];
+      const otherCookie = (Array.isArray(secondSetCookie) ? secondSetCookie : [secondSetCookie])
+        .filter(Boolean).map(item => item.split(';')[0]).join('; ');
+      assert.ok(otherCookie);
+      const changedPassword = await app.inject({
+        method: 'POST', url: '/api/auth/change-password',
+        headers: { ...headers, cookie },
+        payload: { currentPassword: 'Aq7!x9pQ', newPassword: 'Bz8!y6mR', revokeOtherSessions: true }
+      });
+      assert.equal(changedPassword.statusCode, 200, changedPassword.body);
+
+      const currentSession = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
+      assert.equal(currentSession.statusCode, 200, currentSession.body);
+      const revokedSession = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: otherCookie } });
+      assert.equal(revokedSession.statusCode, 401, revokedSession.body);
+
+      const oldCredentials = await app.inject({
+        method: 'POST', url: '/api/auth/sign-in/email', headers,
+        payload: { email, password: 'Aq7!x9pQ' }
+      });
+      assert.notEqual(oldCredentials.statusCode, 200, 'Old password must stop working');
+      const newCredentials = await app.inject({
+        method: 'POST', url: '/api/auth/sign-in/email', headers,
+        payload: { email, password: 'Bz8!y6mR' }
+      });
+      assert.equal(newCredentials.statusCode, 200, newCredentials.body);
+
       const signOut = await app.inject({ method: 'POST', url: '/api/auth/sign-out', headers: { ...headers, cookie }, payload: {} });
       assert.equal(signOut.statusCode, 200, signOut.body);
       const after = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
