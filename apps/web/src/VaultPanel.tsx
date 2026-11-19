@@ -379,7 +379,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
                     </button>
                   </div>
                 </div>
-
+              ))}
             </div>}
         <p className="mt-4 text-xs leading-relaxed text-slate-400">{t.note} {t.original} {t.billing}</p>
         <p className="mt-2 text-xs font-medium text-amber-700">{t.betaWarning}</p>
