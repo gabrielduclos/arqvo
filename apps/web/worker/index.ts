@@ -33,7 +33,7 @@ const json = (body: object, status = 200): Response => Response.json(body, {
 const fail = (status: number, error: string) => json({ error }, status);
 const atPath = (req: Request) => new URL(req.url);
 const docId = (pathname: string, suffix = ''): string | null => {
-  const rx = new RegExp('^/api/documents/([a-zA-Z0-9-]+)' + suffix + '
+  const rx = new RegExp('^/api/documents/([a-zA-Z0-9-]+)' + suffix + '$');
   const match = pathname.match(rx);
   return match && UUID.test(match[1]) ? match[1] : null;
 };
