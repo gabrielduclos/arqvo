@@ -2,13 +2,15 @@
 
 **Your documents. Every answer.**
 
-[UI Kit](docs/ui-kit.md) · [Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
+[Mobile-first UI Kit](docs/ui-kit.md) · [Português (Brasil)](README.pt-BR.md) · [Architecture](docs/architecture.md) · [Deployment](docs/deployment.md) · [Privacy](PRIVACY.md) · [Roadmap](docs/roadmap.md)
 
 **Arqvo** is an open-source, mobile-first organizer for receipts, invoices and proofs of payment. It preserves the original files, makes them searchable, automatically attempts to extract metadata after upload, and offers AI-assisted search.
 
 **Web app:** https://arqvo.uorqui1.workers.dev
 
 > **Beta warning:** The account area and document management are implemented; full end-to-end testing with a verified real account is still pending. Not an audited financial vault or the only safe backup for important documents. The application now opens to the login page. After signing in, **Overview** shows live account statistics and **Documents** contains real uploads. No sample documents are displayed.
+
+**Mobile-first UI:** a fixed bottom navigation for Overview and Documents on phones (no sidebar); horizontal navigation in the desktop header. Touch-friendly cards, a bottom-sheet preview and live account summaries.
 
 ## Features
 

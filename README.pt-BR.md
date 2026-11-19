@@ -2,13 +2,15 @@
 
 **Seus documentos. Todas as respostas.**
 
-[UI Kit original](docs/ui-kit.pt-BR.md) · [English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
+[UI Kit mobile-first](docs/ui-kit.pt-BR.md) · [English](README.md) · [Arquitetura](docs/architecture.pt-BR.md) · [Implantação](docs/deployment.pt-BR.md) · [Privacidade](PRIVACY.pt-BR.md) · [Roteiro](docs/roadmap.md)
 
 O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas fiscais e comprovantes. Preserva os arquivos originais, permite encontrá-los, inicia automaticamente a extração de dados após o upload e oferece pesquisa com inteligência artificial.
 
 **Aplicativo:** https://arqvo.uorqui1.workers.dev
 
 > **Atenção — beta:** o cadastro, autenticação e módulo de documentos estão implementados; ainda falta validar o fluxo completo com uma conta real de e-mail confirmado. Não é um cofre financeiro auditado nem deve ser a única cópia de documentos importantes. O aplicativo abre na tela de login. Após entrar, **Visão geral** exibe indicadores reais da conta, e **Documentos** contém os uploads reais. Não são exibidos documentos de demonstração.
+
+**Interface mobile-first:** navegação inferior fixa no celular (Visão geral e Documentos), sem menu lateral; no desktop, navegação no cabeçalho. Layout e visualização otimizados para toque, preview em bottom sheet e indicadores reais.
 
 ## Funcionalidades
 
