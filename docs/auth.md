@@ -1,20 +1,50 @@
-# Better Auth + Cloudflare / Autenticação
+# Better Auth + Resend / Autenticação e e-mail
 
-**Status / Situação:** integration scaffold; login is NOT live / integração preparada; login NÃO liberado.
+**Current status / Situação:** Safe staging. Better Auth is implemented but **not live** (`AUTH_ENABLED=false`). Public registration is **also disabled** (`AUTH_PUBLIC_SIGNUP=false`).
 
-- Frontend: Cloudflare Worker `arqvo` on `https://arqvo.uorqui1.workers.dev`.
-- Auth endpoints: same-origin `/api/auth/*`, reverse proxied by Cloudflare to Render Fastify.
-- Backend: `arqvo-api`, PostgreSQL project `arqvo` on Neon.
-- Cookie: Arqvo-specific prefix, HttpOnly, Secure on HTTPS; no cross-site cookies.
-- R2 bucket `arqvo-documents`: private, bound to Cloudflare Worker as `DOCS_BUCKET`; no storage endpoints exposed yet.
+## Architecture
+- Frontend: Cloudflare Worker `arqvo`, https://arqvo.uorqui1.workers.dev
+- Authentication and cookies: Cloudflare same-origin `/api/auth/*`, proxied to Render Fastify.
+- Auth data: separate Neon PostgreSQL project `arqvo` (`user`, `session`, `account`, `verification`).
+- Email: Resend REST service, called **only on the Render backend**; `RESEND_API_KEY` is never placed in the client or GitHub.
+- R2: private `arqvo-documents` bound to Worker as `DOCS_BUCKET`. No document endpoints currently exposed.
+- English and Portuguese emails use plain text, with an origin check on verification/reset URLs.
 
-## Activation checklist / Checklist de ativação
-1. [x] Review, test and apply the [Better Auth migration](database/002_better_auth.sql) to **Arqvo main** after explicit approval on 2026-11-19. Migration ID: `49d149e3-2172-418b-a739-03c7e695a96a`. Four tables and nine indexes verified; temporary branch deleted.
-2. Verify that the installed Better Auth version's generated schema matches the migration.
-3. Configure `BETTER_AUTH_SECRET` (>= 32 random bytes) and `BETTER_AUTH_URL` as Render secrets.
-4. Provide a verified transactional email sender before enabling public registration or password recovery.
-5. Only then set `AUTH_ENABLED=true` and perform end-to-end sign-in, logout, session, cookie and CSRF tests.
-6. Implement owner-scoped document upload / download; do not expose files on unauthenticated routes.
+## What has been done / O que foi feito
+- [x] Migration [002_better_auth.sql](database/002_better_auth.sql) applied on Neon `arqvo` main with approval on 2026-11-19. Four tables and nine indexes verified; temporary branch removed.
+- [x] Resend transport code implemented with tests and safe error handling.
+- [x] Better Auth verification and password-reset callbacks prepared; 12-character minimum password, sessions revoked on password reset.
+- [x] Public `/api/auth/status` endpoint for the frontend (booleans only).
+- [x] Login/register/reset UI supports feature flags; it doesn't activate when auth is disabled.
+- [ ] Configure a sender domain verified in the Resend dashboard.
+- [ ] Add a dedicated `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to the Render service.
+- [ ] Review CI full PostgreSQL signup/login/logout results and production transport.
+- [ ] Set `AUTH_ENABLED=true` **only after the above** and validate login + cookies on Cloudflare.
+- [ ] Set `AUTH_PUBLIC_SIGNUP=true` only after email delivery, verification, privacy policy and abuse protection have been tested.
 
-## Portuguese
-A autenticação será da própria aplicação e não reutiliza usuários, sessões ou cookies do Uorqui. O login ficará na origem Cloudflare para evitar bloqueio de cookies de terceiros no Safari e navegadores móveis. A inscrição pública continua desabilitada até configurar verificação de e-mail. Não publicar credenciais ou dados financeiros reais.
+## Render variables
+| Name | Status | Notes |
+|---|---|---|
+| `DATABASE_URL` | Configured | Arqvo Neon only; secret |
+| `BETTER_AUTH_SECRET` | Configured | Never in GitHub |
+| `BETTER_AUTH_URL` | Configured | https://arqvo.uorqui1.workers.dev |
+| `AUTH_ENABLED` | false | Require complete verified sender configuration before true |
+| `AUTH_PUBLIC_SIGNUP` | false | Second explicit switch for registration |
+| `RESEND_API_KEY` | missing | Create in Resend and keep secret |
+| `RESEND_FROM_EMAIL` | missing | Must be an address on a verified sending domain |
+
+## English / Instructions
+1. Add and verify a domain at https://resend.com/domains (DNS entries include SPF/DKIM, as shown by Resend).
+2. Create an API key for the Arqvo project at https://resend.com/api-keys. Do not share it in GitHub issues or public chats.
+3. In the Render service `arqvo-api`, add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in Environment.
+4. Check test email deliverability, callback URL, password-reset operation, session revocation and cookie protection.
+5. Only then activate authentication, and later public signup.
+
+## Português / Instruções
+1. No Resend, acesse https://resend.com/domains e verifique um domínio remetente seguindo os registros DNS exigidos.
+2. Gere uma chave de API para o Arqvo em https://resend.com/api-keys, sem publicá-la.
+3. No serviço Render `arqvo-api`, configure como segredos `RESEND_API_KEY` e o endereço autorizado `RESEND_FROM_EMAIL`.
+4. Valide entrega, URL de callback, redefinição de senha, revogação de sessões e cookies.
+5. Só então habilite autenticação; cadastro público é uma segunda etapa.
+
+**Never place private financial documents, credentials or active account tokens in the repository or vault. / Nunca publique documentos financeiros reais, segredos nem tokens.**

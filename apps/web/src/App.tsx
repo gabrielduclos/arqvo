@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import AuthPanel, { type AuthStatus } from './AuthPanel';
 import {
   Archive, ArrowDownToLine, ArrowRight, CalendarDays, CheckCircle2,
   ChevronDown, FileImage, FileText, FolderOpen, LayoutDashboard, LockKeyhole,
@@ -92,6 +93,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [toast, setToast] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const reducedMotion = useReducedMotion();
@@ -101,6 +104,23 @@ export default function App() {
     const timeout = window.setTimeout(() => setReady(true), reducedMotion ? 0 : 500);
     return () => window.clearTimeout(timeout);
   }, [reducedMotion]);
+
+  useEffect(() => {
+    // Auth status is non-blocking: public demo loads even if Render Free is sleeping.
+    const controller = new AbortController();
+    const stop = window.setTimeout(() => controller.abort(), 12000);
+    fetch('/api/auth/status', { cache: 'no-store', signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(status => {
+        if (status?.enabled) {
+          setAuthStatus(status as AuthStatus);
+          if (window.location.pathname === '/reset-password') setShowAuth(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => window.clearTimeout(stop));
+    return () => { controller.abort(); window.clearTimeout(stop); };
+  }, []);
 
   const displayed = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase();
@@ -146,6 +166,11 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3">
                 <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer" className="hidden items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-brand sm:inline-flex"><span>{t.openSource}</span><ArrowRight size={15} /></a>
+                {authStatus?.enabled && (
+                  <button onClick={() => setShowAuth(true)} className="inline-flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                    <LockKeyhole size={15} />{language === 'pt' ? 'Entrar' : 'Sign in'}
+                  </button>
+                )}
                 <button onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')} aria-label="Change language" className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand">
                   {language === 'pt' ? 'PT-BR' : 'EN'}<ChevronDown size={14} />
                 </button>
@@ -269,6 +294,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+          {showAuth && authStatus?.enabled && <AuthPanel language={language} status={authStatus} onClose={() => setShowAuth(false)} />}
         </motion.div>
       )}
     </AnimatePresence>
