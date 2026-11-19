@@ -10,6 +10,7 @@ import DocumentFilters, {
 } from './DocumentFilters';
 import { categoryLabel, categoryOptions } from './documentCategories';
 import UploadSourceModal, { type UploadSource } from './UploadSourceModal';
+import DocumentScannerModal from './DocumentScannerModal';
 
 type Language = 'pt' | 'en';
 type DocumentView = 'all' | 'month' | 'identified';
@@ -48,7 +49,7 @@ const words = {
     title: 'Documentos', intro: 'Envie, encontre, visualize e baixe seus documentos.',
     upload: 'Adicionar documento', drop: 'Escolha um PDF ou imagem', formats: 'PDF, JPG, PNG ou WebP · até 8 MB · máximo de 100 arquivos',
     uploadInfo: 'Informações do envio', uploadInfoHint: 'Formatos, limites e análise automática por IA',
-    processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar estabelecimento, data, valor e categoria conforme os itens comprados. O arquivo original será preservado; confira os resultados.',
+    processing: 'Enviando e digitalizando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar estabelecimento, data, valor e categoria conforme os itens comprados. O arquivo original será preservado; confira os resultados.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
     find: 'Buscar', searchAndFilters: 'Busca e filtros', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.',
@@ -59,7 +60,7 @@ const words = {
     unauthorized: 'Sessão inválida ou e-mail não confirmado. Faça login novamente.',
     aiLimit: 'A IA está temporariamente indisponível. O arquivo continua salvo.',
     large: 'Arquivo muito grande. O limite é 8 MB.', type: 'Formato não aceito. Envie PDF, JPG, PNG ou WebP.',
-    saved: 'Arquivo salvo. Iniciando extração automática…', extracted: 'Dados identificados. Confira as informações no documento original.',
+    saved: 'Arquivo salvo. Analisando o texto reconhecido…', localSaved: 'Digitalização local concluída. Confira os dados reconhecidos.', extracted: 'Dados identificados. Confira as informações no documento original.',
     note: 'Valores extraídos por IA são sugestões e devem ser conferidos.', noResults: 'Nenhum documento encontrado.',
     merchant: 'Estabelecimento', category: 'Categoria', subcategory: 'Subcategoria', amount: 'Valor', date: 'Data', format: 'Formato',
     editMetadata: 'Corrigir dados', saveMetadata: 'Salvar alterações', cancelEdit: 'Cancelar', savedMetadata: 'Informações atualizadas. Suas correções serão mantidas mesmo após nova análise.', unknownCategory: 'Não classificado',
@@ -76,7 +77,7 @@ const words = {
     title: 'Documents', intro: 'Upload, search, preview and download your documents.',
     upload: 'Add a document', drop: 'Choose a PDF or image', formats: 'PDF, JPG, PNG, WebP · up to 8 MB · maximum 100 files',
     uploadInfo: 'Upload information', uploadInfoHint: 'Formats, limits and automatic AI extraction',
-    processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI attempts to identify the merchant, date, amount and category based on the purchased items. The original remains preserved; verify the results.',
+    processing: 'Uploading and scanning…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI attempts to identify the merchant, date, amount and category based on the purchased items. The original remains preserved; verify the results.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
     find: 'Search', searchAndFilters: 'Search and filters', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.',
@@ -87,7 +88,7 @@ const words = {
     unauthorized: 'Invalid session or unverified email. Sign in again.',
     aiLimit: 'AI is temporarily unavailable. Your file remains saved.',
     large: 'File is too large. Maximum is 8 MB.', type: 'Unsupported file. Choose PDF, JPG, PNG or WebP.',
-    saved: 'File saved. Starting automatic extraction…', extracted: 'Details identified. Check the information against the original.',
+    saved: 'File saved. Processing recognized text…', localSaved: 'Local scan completed. Review the recognized details.', extracted: 'Details identified. Check the information against the original.',
     note: 'AI-extracted values are suggestions that must be checked.', noResults: 'No documents found.',
     merchant: 'Merchant', category: 'Category', subcategory: 'Subcategory', amount: 'Amount', date: 'Date', format: 'Format',
     editMetadata: 'Correct details', saveMetadata: 'Save changes', cancelEdit: 'Cancel', savedMetadata: 'Details updated. Your corrections are retained after future AI analysis.', unknownCategory: 'Uncategorized',
@@ -119,6 +120,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [showFilters, setShowFilters] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(false);
   const [showUploadSource, setShowUploadSource] = useState(false);
+  const [scanFile, setScanFile] = useState<File | null>(null);
   const requestSequence = useRef(0);
   const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
@@ -253,20 +255,21 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   }, [selected?.id, selected?.status]);
 
 
-  async function analyze(id: string, automatic = false) {
+  async function analyze(id: string, automatic = false, localScan?: { text: string; confidence: number }) {
     if (!automatic && !window.confirm(t.confirmAI)) return;
     setWorkingId(id);
     setError('');
     setMessage(t.extracting);
     try {
-      const response = await fetch('/api/documents/' + id + '/analyze', {
+      const response = await fetch('/api/documents/' + id + (localScan ? '/scan' : '/analyze'), {
         method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' }, body: '{}',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(localScan ?? {}),
         signal: AbortSignal.timeout(90000)
       });
       const body = await parse(response);
       if (!response.ok) throw new Error(problem(body.error));
-      setMessage(body.extractionState === 'structured' ? t.extracted
+      setMessage(localScan && !body.aiUsed && body.extractionState === 'structured' ? t.localSaved
+        : body.extractionState === 'structured' ? t.extracted
         : body.extractionState === 'partial' ? t.partialFields : t.noFields);
       await refresh();
       if (selected?.id === id && body.document) setSelected(body.document);
@@ -278,7 +281,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     }
   }
 
-  async function upload(file: File) {
+  async function upload(file: File, localScan?: { text: string; confidence: number }) {
     if (busy) return;
     setError(''); setMessage('');
     if (!ALLOWED.has(file.type)) { setError(t.type); return; }
@@ -298,7 +301,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
       if (!response.ok || !result.document) throw new Error(problem(result.error));
       setMessage(t.saved);
       await refresh();
-      await analyze(result.document.id, true);
+      await analyze(result.document.id, true, localScan);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t.error);
     } finally {
@@ -323,7 +326,15 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
     const picked = event.currentTarget.files?.[0];
     // Allow users to select the same file again after upload/cancellation.
     event.currentTarget.value = '';
-    if (picked) void upload(picked);
+    if (picked) {
+      if (picked.type.startsWith('image/')) {
+        if (!ALLOWED.has(picked.type) || !picked.size || picked.size > MAX_BYTES) {
+          setError(!ALLOWED.has(picked.type) ? t.type : t.large);
+          return;
+        }
+        setScanFile(picked);
+      } else void upload(picked);
+    }
   }
 
   async function remove(doc: Document) {
@@ -469,6 +480,15 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
         <a className="mt-2 inline-block text-xs font-semibold text-brand underline" href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'} target="_blank" rel="noreferrer">{t.privacy}</a>
       </div>
 
+      <AnimatePresence>
+        {scanFile && <DocumentScannerModal key="document-scanner" file={scanFile}
+          language={language} onClose={() => setScanFile(null)}
+          onScanned={(text, confidence) => {
+            const original = scanFile;
+            setScanFile(null);
+            if (original) void upload(original, { text, confidence });
+          }}/>}
+      </AnimatePresence>
       <AnimatePresence>
         {showUploadSource && <UploadSourceModal key="choose-upload-source" language={language}
           onSelect={chooseUploadSource} onClose={() => setShowUploadSource(false)}/>}
