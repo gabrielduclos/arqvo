@@ -11,6 +11,20 @@ import DocumentFilters, {
 import { categoryLabel, categoryOptions } from './documentCategories';
 
 type Language = 'pt' | 'en';
+type DocumentView = 'all' | 'month' | 'identified';
+
+function presetFilters(view: DocumentView): DocumentFilterValues {
+  const filters = { ...emptyDocumentFilters };
+  if (view === 'identified') filters.analysis = 'ready';
+  if (view === 'month') {
+    const now = new Date();
+    const year = now.getUTCFullYear(), month = now.getUTCMonth();
+    filters.dateBy = 'uploaded';
+    filters.dateFrom = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+    filters.dateTo = new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
+  }
+  return filters;
+}
 type Document = {
   id: string;
   filename: string;
@@ -36,7 +50,7 @@ const words = {
     processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar estabelecimento, data, valor e categoria conforme os itens comprados. O arquivo original será preservado; confira os resultados.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
-    find: 'Buscar', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.', aiQuestion: 'Pergunte à IA sobre seus documentos',
+    find: 'Buscar', searchAndFilters: 'Busca e filtros', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.', aiQuestion: 'Pergunte à IA sobre seus documentos',
     aiPlaceholder: 'Ex.: notas da farmácia acima de 100 reais', askAI: 'Pesquisar com IA',
     searchAIInfo: 'A IA interpreta sua pergunta, mas os resultados vêm apenas dos seus documentos. A pergunta é enviada à Cloudflare AI.',
     searching: 'Pesquisando…', scanned: 'Dados identificados', pending: 'Aguardando análise', partial: 'Dados parciais', textOnly: 'Texto extraído, sem dados identificados', extracting: 'Processando com IA…', noFields: 'O texto foi extraído, mas a IA não conseguiu identificar estabelecimento, data ou valor. Você pode tentar novamente.', partialFields: 'Extração parcial: confira e complete os dados pelo documento original.',
@@ -68,7 +82,7 @@ const words = {
     processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI attempts to identify the merchant, date, amount and category based on the purchased items. The original remains preserved; verify the results.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
-    find: 'Search', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.', aiQuestion: 'Ask AI about your documents',
+    find: 'Search', searchAndFilters: 'Search and filters', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.', aiQuestion: 'Ask AI about your documents',
     aiPlaceholder: 'e.g., pharmacy invoices over R$ 100', askAI: 'AI search',
     searchAIInfo: 'AI interprets your question, but matches come only from your documents. Your question is sent to Cloudflare AI.',
     searching: 'Searching…', scanned: 'Data identified', pending: 'Waiting for analysis', partial: 'Partial data', textOnly: 'Text extracted, details not identified', extracting: 'Analyzing with AI…', noFields: 'Text was extracted, but the AI could not identify a merchant, date or amount. You can try again.', partialFields: 'Partial extraction: check the original for missing details.',
@@ -102,11 +116,11 @@ async function parse(response: Response): Promise<Result> {
   return result && typeof result === 'object' ? result as Result : {};
 }
 
-export default function VaultPanel({ language, email }: { language: Language; email: string }) {
+export default function VaultPanel({ language, email, initialView = 'all' }: { language: Language; email: string; initialView?: DocumentView }) {
   const t = words[language];
   const fileRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Document[]>([]);
-  const [filters, setFilters] = useState<DocumentFilterValues>({ ...emptyDocumentFilters });
+  const [filters, setFilters] = useState<DocumentFilterValues>(() => presetFilters(initialView));
   const [showFilters, setShowFilters] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(false);
   const requestSequence = useRef(0);
@@ -124,7 +138,7 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const [search, setSearch] = useState('');
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiSearch, setAiSearch] = useState(false);
-  const [mode, setMode] = useState<'all' | 'keyword' | 'ai'>('all');
+  const [mode, setMode] = useState<'all' | 'keyword' | 'ai'>(initialView === 'all' ? 'all' : 'keyword');
   const [loading, setLoading] = useState(true);
 
   const date = (raw: string | null) => {
@@ -170,7 +184,14 @@ export default function VaultPanel({ language, email }: { language: Language; em
       if (requestId === requestSequence.current) setLoading(false);
     }
   }
-  useEffect(() => { void refresh('', emptyDocumentFilters); }, [email]);
+  useEffect(() => {
+    const next = presetFilters(initialView);
+    setFilters(next);
+    setMode(initialView === 'all' ? 'all' : 'keyword');
+    setSearch('');
+    setAiQuestion('');
+    void refresh('', next);
+  }, [email, initialView]);
 
   function applyFilters(next: DocumentFilterValues) {
     setFilters(next);
@@ -371,6 +392,22 @@ export default function VaultPanel({ language, email }: { language: Language; em
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={19}/>{error}<button aria-label={t.clear} onClick={() => setError('')} className="ml-auto"><X size={18}/></button></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700"><CheckCircle2 size={19}/>{message}<button aria-label={t.clear} onClick={() => setMessage('')} className="ml-auto"><X size={18}/></button></div>}
 
+      <div className="flex flex-wrap items-center justify-between gap-2" aria-label={t.searchAndFilters}>
+        <h2 className="text-sm font-semibold text-ink">{t.searchAndFilters}</h2>
+        <div className="flex items-center gap-2">
+          {(mode !== 'all' || activeFilters > 0) && <button type="button"
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-slate-500 hover:text-brand"
+            onClick={clearAllFilters}>{t.reset}<X size={14}/></button>}
+          <button type="button" onClick={() => setShowFilters(true)}
+            aria-label={t.filters} aria-haspopup="dialog"
+            className={'inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ' +
+              (activeFilters ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200')}>
+            <SlidersHorizontal size={17}/>{t.filters}
+            {activeFilters > 0 && <span className="flex size-5 items-center justify-center rounded-full bg-brand text-[11px] text-white"
+              aria-label={t.activeFilters}>{activeFilters}</span>}
+          </button>
+        </div>
+      </div>
       <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden" role="group"
         aria-label={language === 'pt' ? 'Modo de pesquisa' : 'Search mode'}>
         <button type="button" onClick={() => setMobileSearch('keyword')}
@@ -412,18 +449,9 @@ export default function VaultPanel({ language, email }: { language: Language; em
       </div>
 
       <div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">{t.docs}</h2><p className="text-xs text-slate-500">{listedDocs.length} {t.documentsCount}</p></div>
-          <div className="flex items-center gap-2">
-            {(mode !== 'all' || activeFilters > 0) && <button type="button" className="inline-flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-slate-500 hover:text-brand" onClick={clearAllFilters}>{t.reset}<X size={14}/></button>}
-            <button type="button" onClick={() => setShowFilters(true)}
-              aria-label={t.filters} aria-haspopup="dialog"
-              className={'inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ' +
-                (activeFilters ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200')}>
-              <SlidersHorizontal size={17}/>{t.filters}
-              {activeFilters > 0 && <span className="flex size-5 items-center justify-center rounded-full bg-brand text-[11px] text-white" aria-label={t.activeFilters}>{activeFilters}</span>}
-            </button>
-          </div>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">{t.docs}</h2>
+          <p className="text-xs text-slate-500">{listedDocs.length} {t.documentsCount}</p>
         </div>
         {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center"><LoaderCircle size={26} className="mx-auto animate-spin text-brand"/></div>
           : listedDocs.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">

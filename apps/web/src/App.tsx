@@ -7,6 +7,7 @@ import OverviewPanel from './OverviewPanel';
 
 type Language = 'pt' | 'en';
 type Section = 'overview' | 'documents';
+type DocumentView = 'all' | 'month' | 'identified';
 
 const copy = {
   pt: {
@@ -40,8 +41,10 @@ const copy = {
 export default function App() {
   const [language, setLanguage] = useState<Language>('pt');
   const [section, setSection] = useState<Section>('overview');
+  const [documentView, setDocumentView] = useState<DocumentView>('all');
   const reducedMotion = useReducedMotion();
-  const chooseSection = (next: Section) => {
+  const chooseSection = (next: Section, view: DocumentView = 'all') => {
+    setDocumentView(next === 'documents' ? view : 'all');
     setSection(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
@@ -208,8 +211,8 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? {} : { opacity: 0, y: -8 }}
             transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
             {section === 'overview'
-              ? <OverviewPanel language={language} onOpenDocuments={() => chooseSection('documents')}/>
-              : <VaultPanel language={language} email={user.email}/>}
+              ? <OverviewPanel language={language} onOpenDocuments={(view = 'all') => chooseSection('documents', view)}/>
+              : <VaultPanel language={language} email={user.email} initialView={documentView}/>}
           </motion.div>
         </AnimatePresence>
         <footer className="mt-12 hidden flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400 md:flex">
