@@ -4,6 +4,12 @@ export const MAX_FILE_BYTES = 8 * 1024 * 1024;
 export const ALLOWED_MIME = new Set([
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp'
 ]);
+export const DOCUMENT_CATEGORIES = new Set([
+  'alimentacao', 'mercado', 'combustivel', 'transporte', 'farmacia',
+  'saude', 'moradia', 'contas', 'educacao', 'lazer',
+  'compras', 'servicos', 'outros'
+]);
+
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sendError(reply, code, error) {
@@ -54,7 +60,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
     return pool.query(
       `SELECT id, original_filename AS "filename", mime_type AS "mimeType",
               size_bytes AS "sizeBytes", object_key AS "objectKey", status,
-              merchant, document_date AS "documentDate",
+              merchant, category, subcategory, document_date AS "documentDate",
               amount_cents AS "amountCents", currency, extracted_text AS "extractedText",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM public.documents WHERE owner_uid=$1 AND id=$2`,
@@ -87,6 +93,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
 
     const q = text('q', 160);
     const merchant = text('merchant', 150);
+    const category = text('category', 30);
     const dateStart = date('dateStart');
     const dateEnd = date('dateEnd');
     const uploadStart = date('uploadStart');
@@ -106,7 +113,8 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
       amount_low: 'amount_cents ASC NULLS LAST, created_at DESC, id DESC',
       merchant: 'lower(merchant) ASC NULLS LAST, created_at DESC, id DESC'
     };
-    if (q === null || merchant === null ||
+    if (q === null || merchant === null || category === null ||
+        (category && !DOCUMENT_CATEGORIES.has(category)) ||
         dateStart === null || dateEnd === null || uploadStart === null || uploadEnd === null ||
         Number.isNaN(amountMin) || Number.isNaN(amountMax) ||
         type === null || !['', 'pdf', 'image'].includes(type) ||
@@ -122,7 +130,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
       const result = await pool.query(
         `WITH owned AS (
            SELECT id, original_filename, mime_type, size_bytes, status,
-                  merchant, document_date, amount_cents, currency, created_at,
+                  merchant, category, subcategory, document_date, amount_cents, currency, created_at,
                   extracted_text,
                   CASE
                     WHEN status = 'ready' THEN 'ready'
@@ -135,7 +143,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
            FROM public.documents WHERE owner_uid=$1
          )
          SELECT id, original_filename AS "filename", mime_type AS "mimeType",
-                size_bytes AS "sizeBytes", status, merchant,
+                size_bytes AS "sizeBytes", status, merchant, category, subcategory,
                 (nullif(btrim(extracted_text),'') IS NOT NULL) AS "hasExtractedText",
                 analysis_state AS "analysisState",
                 document_date AS "documentDate", amount_cents AS "amountCents",
@@ -143,7 +151,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
          FROM owned
          WHERE ($2::text IS NULL OR position(lower($2) IN lower(
            coalesce(original_filename,'') || ' ' || coalesce(merchant,'') || ' ' ||
-           coalesce(extracted_text,''))) > 0)
+           coalesce(extracted_text,'') || ' ' || coalesce(subcategory,''))) > 0)
            AND ($3::text IS NULL OR position(lower($3) IN lower(coalesce(merchant,''))) > 0)
            AND ($4::date IS NULL OR document_date >= $4)
            AND ($5::date IS NULL OR document_date <= $5)
@@ -154,9 +162,10 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
            AND ($10::text IS NULL OR ($10='pdf' AND mime_type='application/pdf')
                 OR ($10='image' AND mime_type LIKE 'image/%'))
            AND ($11::text IS NULL OR analysis_state = $11)
+           AND ($12::text IS NULL OR category = $12)
          ORDER BY ${sorts[sort]} LIMIT 100`,
         [userId, q || null, merchant || null, dateStart || null, dateEnd || null,
-          amountMin, amountMax, uploadStart || null, uploadEnd || null, type || null, analysis || null]
+          amountMin, amountMax, uploadStart || null, uploadEnd || null, type || null, analysis || null, category || null]
       );
       return { documents: result.rows };
     } catch (err) {
