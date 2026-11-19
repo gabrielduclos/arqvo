@@ -5,7 +5,7 @@
 ## Cores e tipografia originais
 - Roxo principal `#5146e5` (`brand`), `brand-soft #f0efff`.
 - Fundo `#f7f8fc` (`canvas`), texto `#191b2a` (`ink`), secundário `#74798b`.
-- Banner/hero Visão geral `#201d42`, luzes roxas desfocadas e texto branco/índigo claro.
+- O antigo banner/hero violeta `#201d42` faz parte apenas do snapshot histórico e **não deve ser restaurado** na Visão geral atual.
 - Superfícies brancas, bordas slate-200, fundos indigo-50 para ícones, botões rounded-xl e cards rounded-2xl.
 - Fonte Inter com fallback sistema; títulos com espaçamento de letras reduzido; logo minúsculo **arqvo.**, ponto roxo.
 
@@ -15,7 +15,7 @@
 - Em telas a partir de 768px, navegação horizontal integrada ao header, sem sidebar. Footer inferior apenas no mobile.
 - O menu lateral de 252px e o hambúrguer são **referências históricas do protótipo**, expressamente substituídos a pedido do proprietário.
 - Área principal mobile-first com padding lateral de 16px no celular e espaço inferior suficiente para o footer fixo, sem encobrir documentos ou ações. Desktop com conteúdo centralizado em largura máxima.
-- Visão geral: banner roxo escuro arredondado (24px mobile/28px desktop), CTA adaptativo e **indicadores reais em grade de duas colunas no celular**, com densidade maior e sem overflow; documentos recentes compactos.
+- Visão geral atual: título simples, **sem banner roxo grande**. Três indicadores reais ficam **lado a lado também no celular** (3 colunas) e todos são botões. Total abre Documentos sem filtros; Este mês filtra pela data de envio do mês atual; Dados identificados filtra por análise concluída. Valores vêm somente da conta autenticada.
 - Documentos: CTA de upload de largura total no celular, pesquisa normal/IA em abas compactas, filtros em pills roláveis horizontalmente, cartões com valor, status e **alvos táteis mínimos de 44px** para reanalisar/baixar/excluir. Modal de documento funciona como bottom sheet no mobile.
 - **Informações de upload:** o card fixo de formatos/limites/IA foi substituído por ícone circular **ⓘ** junto ao título Documentos. Toque para abrir detalhes em bottom sheet; o aviso sobre processamento com IA continua acessível.
 - Não exibir dados fictícios, mesmo usando esse protótipo como base visual.
@@ -44,6 +44,12 @@
 [English](ui-kit.md)
 
 ## Filtro avançado — documentos
-- Botão **Filtros** com contador de critérios ativos.
+- Botão **Filtros** com contador de critérios ativos **dentro da área de busca**, junto aos controles de pesquisa textual e por IA; nunca junto ao título da lista de documentos.
 - Painel mobile com estabelecimento, tipo PDF/imagem, situação da extração, período (data de emissão ou envio), valor mínimo/máximo e ordenação.
 - Filtros combináveis consultados no Neon por proprietário; busca por IA respeita as restrições explícitas.
+
+## Decisão de interface — indicadores e busca (19/11/2026)
+- Remover o banner grande de Visão geral e não substituí-lo por outro card promocional.
+- Manter os indicadores Total, Este mês e Dados identificados em 3 colunas compactas, responsivas, acessíveis e clicáveis.
+- Cada indicador navega até Documentos com o filtro real correspondente previamente aplicado.
+- Botão Filtros, contador de critérios e Limpar busca devem estar associados ao cabeçalho de **Busca e filtros**; a lista apresenta somente o título e contagem de resultados.

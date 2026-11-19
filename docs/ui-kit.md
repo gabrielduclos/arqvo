@@ -6,7 +6,7 @@
 - Primary purple `#5146e5` (`brand`); hover purple / indigo-700.
 - Active purple wash `#f0efff` (`brand-soft`).
 - Canvas `#f7f8fc`; main ink `#191b2a`; secondary text `#74798b`.
-- Overview hero `#201d42` with subtle violet glows and white/indigo-100 typography.
+- Historical dark-violet Overview hero `#201d42` remains archived for reference but **must not be restored** into the current Overview.
 - White surfaces, thin slate-200 borders, indigo-50 icon backgrounds, `rounded-xl` controls and `rounded-2xl` cards.
 - Fonts: Inter, system sans fallback; compact labels, tight tracked headings. Wordmark lowercase **arqvo.** with purple trailing dot.
 
@@ -16,7 +16,7 @@
 - On desktop (>=768px), navigation is horizontal in the header; no lateral menu.
 - The original 252px sidebar and hamburger drawer are **historical prototype artifacts**, explicitly superseded by the owner's mobile-first request.
 - Mobile-first content with 16px horizontal padding and extra bottom spacing so the fixed footer never obscures content. Desktop uses a centered max-width container.
-- Overview: deep-purple hero rounded 24px mobile/28px desktop, responsive CTA, **real KPI cards in a compact two-column mobile grid**, recent real documents below.
+- Current Overview: simple title **without a large purple hero**; three clickable real-data KPI cards **side by side even on mobile**. Total opens all Documents, This month applies the current upload-month filter, and Data identified applies the completed-analysis filter.
 - Documents: full-width upload CTA on mobile, separate keyword/AI modes in a compact segmented switch, horizontal filter pills, touch-friendly document cards, and a mobile bottom-sheet preview.
 - **Upload guidance:** the tall permanent information card was replaced with a compact circular **ⓘ** next to Documents. Tapping opens an accessible modal/bottom sheet with file format, size and automatic AI processing details.
 - Both screens use **real Neon account data only**, with an actual upload control. Preserve the visual structure without restoring static document arrays.
@@ -46,6 +46,11 @@ If future instructions change data flows, API, components or AI behavior, keep t
 
 
 ## Advanced document filters
-- **Filters** button with an active-filter count.
+- **Filters** button and active-filter count are displayed **inside the search area**, next to the keyword/AI search controls, not beside the document-list heading.
 - Mobile panel with merchant, PDF/image, extraction status, date range (document or upload), min/max BRL amount and sorting.
 - Combined filters execute against owner-scoped Neon queries; AI search honors explicit constraints.
+
+## Current Overview/Search interaction (November 19, 2026)
+- Remove the large Overview banner; no substitute hero card.
+- Keep Total, This month and Identified side by side, including phones, and make each open an appropriately filtered Documents view.
+- Keep Filters / Clear controls adjacent to the keyword/AI search area; the results section only shows its heading and result count.
