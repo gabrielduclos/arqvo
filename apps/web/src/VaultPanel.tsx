@@ -3,8 +3,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowDownToLine, ArrowRight, CheckCircle2,
   FileImage, FilePlus2, FileText, FolderOpen, LoaderCircle,
-  LockKeyhole, Search, ShieldCheck, Sparkles, Trash2, X
+  LockKeyhole, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, X
 } from 'lucide-react';
+import DocumentFilters, {
+  type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
+} from './DocumentFilters';
 
 type Language = 'pt' | 'en';
 type Document = {
@@ -29,7 +32,7 @@ const words = {
     processing: 'Enviando e analisando…', analyzeAfter: 'Extração automática com IA', aiConsent: 'Ao enviar um documento, a Cloudflare Workers AI tentará identificar automaticamente estabelecimento, data e valor. O arquivo original será preservado; confira os dados extraídos.',
     docs: 'Documentos armazenados', documentsCount: 'arquivos', empty: 'Nenhum documento enviado ainda.', emptySub: 'Adicione seu primeiro documento para começar.',
     query: 'Pesquisar por nome, estabelecimento ou texto', queryPlaceholder: 'Ex.: farmácia, supermercado, garantia',
-    find: 'Buscar', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', aiQuestion: 'Pergunte à IA sobre seus documentos',
+    find: 'Buscar', all: 'Todos', pdf: 'PDFs', images: 'Imagens', reset: 'Limpar busca', filters: 'Filtros', activeFilters: 'Filtros ativos', invalidFilters: 'Confira os filtros selecionados.', aiQuestion: 'Pergunte à IA sobre seus documentos',
     aiPlaceholder: 'Ex.: notas da farmácia acima de 100 reais', askAI: 'Pesquisar com IA',
     searchAIInfo: 'A IA interpreta sua pergunta, mas os resultados vêm apenas dos seus documentos. A pergunta é enviada à Cloudflare AI.',
     searching: 'Pesquisando…', scanned: 'Dados identificados', pending: 'Aguardando análise', partial: 'Dados parciais', textOnly: 'Texto extraído, sem dados identificados', extracting: 'Processando com IA…', noFields: 'O texto foi extraído, mas a IA não conseguiu identificar estabelecimento, data ou valor. Você pode tentar novamente.', partialFields: 'Extração parcial: confira e complete os dados pelo documento original.',
@@ -59,7 +62,7 @@ const words = {
     processing: 'Uploading and analyzing…', analyzeAfter: 'Automatic AI extraction', aiConsent: 'When you upload a document, Cloudflare Workers AI automatically attempts to recognize the merchant, date and amount. Your original file is preserved; verify the extracted information.',
     docs: 'Stored documents', documentsCount: 'files', empty: 'No documents uploaded yet.', emptySub: 'Add your first document to get started.',
     query: 'Search by name, merchant or extracted text', queryPlaceholder: 'e.g., pharmacy, supermarket, warranty',
-    find: 'Search', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', aiQuestion: 'Ask AI about your documents',
+    find: 'Search', all: 'All', pdf: 'PDFs', images: 'Images', reset: 'Clear search', filters: 'Filters', activeFilters: 'Active filters', invalidFilters: 'Check the selected filters.', aiQuestion: 'Ask AI about your documents',
     aiPlaceholder: 'e.g., pharmacy invoices over R$ 100', askAI: 'AI search',
     searchAIInfo: 'AI interprets your question, but matches come only from your documents. Your question is sent to Cloudflare AI.',
     searching: 'Searching…', scanned: 'Data identified', pending: 'Waiting for analysis', partial: 'Partial data', textOnly: 'Text extracted, details not identified', extracting: 'Analyzing with AI…', noFields: 'Text was extracted, but the AI could not identify a merchant, date or amount. You can try again.', partialFields: 'Partial extraction: check the original for missing details.',
@@ -96,7 +99,9 @@ export default function VaultPanel({ language, email }: { language: Language; em
   const t = words[language];
   const fileRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Document[]>([]);
-  const [fileKind, setFileKind] = useState<'all' | 'pdf' | 'image'>('all');
+  const [filters, setFilters] = useState<DocumentFilterValues>({ ...emptyDocumentFilters });
+  const [showFilters, setShowFilters] = useState(false);
+  const requestSequence = useRef(0);
   const [mobileSearch, setMobileSearch] = useState<'keyword' | 'ai'>('keyword');
   const reducedMotion = useReducedMotion();
   const [busy, setBusy] = useState(false);
@@ -122,33 +127,62 @@ export default function VaultPanel({ language, email }: { language: Language; em
       style: 'currency', currency: 'BRL'
     }).format(Number(cents) / 100);
   const size = (value: number | string) => (Number(value) / 1024 / 1024).toFixed(2) + ' MB';
-  const listedDocs = docs.filter(doc => fileKind === 'all' || (fileKind === 'pdf' ? doc.mimeType === 'application/pdf' : doc.mimeType.startsWith('image/')));
+  const listedDocs = docs;
+  const activeFilters = countDocumentFilters(filters);
   const fileLink = (id: string, download = false) => '/api/documents/' + encodeURIComponent(id) + '/file' + (download ? '?download=1' : '');
 
   const problem = (code?: string) => {
     if (code === 'unauthorized') return t.unauthorized;
     if (code === 'file_too_large_or_empty' || code === 'file_too_large_for_ai') return t.large;
     if (code === 'unsupported_file') return t.type;
+    if (code === 'invalid_filters') return t.invalidFilters;
     if (code === 'ai_daily_limit_or_unavailable' || code === 'ai_daily_limit') return t.aiLimit;
     return t.error;
   };
-  async function refresh(q = '') {
+  async function refresh(q = search.trim(), nextFilters = filters) {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/documents' + (q ? '?q=' + encodeURIComponent(q) : ''), {
+      const query = buildDocumentQuery(nextFilters, q).toString();
+      const response = await fetch('/api/documents' + (query ? '?' + query : ''), {
         credentials: 'same-origin', cache: 'no-store'
       });
       const body = await parse(response);
       if (!response.ok) throw new Error(problem(body.error));
-      setDocs(body.documents || []);
+      if (requestId === requestSequence.current) setDocs(body.documents || []);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t.error);
+      if (requestId === requestSequence.current) {
+        setError(cause instanceof Error ? cause.message : t.error);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }
-  useEffect(() => { void refresh(); }, [email]);
+  useEffect(() => { void refresh('', emptyDocumentFilters); }, [email]);
+
+  function applyFilters(next: DocumentFilterValues) {
+    setFilters(next);
+    setShowFilters(false);
+    const active = countDocumentFilters(next) > 0 || search.trim().length > 0;
+    setMode(active ? 'keyword' : 'all');
+    void refresh(search.trim(), next);
+  }
+
+  function clearAllFilters() {
+    const cleared = { ...emptyDocumentFilters };
+    setFilters(cleared);
+    setSearch('');
+    setAiQuestion('');
+    setMode('all');
+    setShowFilters(false);
+    void refresh('', cleared);
+  }
+
+  function quickType(kind: DocumentFilterValues['type']) {
+    const next = { ...filters, type: kind };
+    applyFilters(next);
+  }
   useEffect(() => {
     setDetailText(null);
     if (!selected) return;
@@ -235,28 +269,34 @@ export default function VaultPanel({ language, email }: { language: Language; em
 
   function searchText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMode(search.trim() ? 'keyword' : 'all');
-    void refresh(search.trim());
+    setMode(search.trim() || activeFilters ? 'keyword' : 'all');
+    void refresh(search.trim(), filters);
   }
 
   async function searchWithAI(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!aiQuestion.trim() || aiSearch) return;
     setAiSearch(true); setError(''); setMessage('');
+    const requestId = ++requestSequence.current;
     try {
       const response = await fetch('/api/ai/search', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: aiQuestion.trim() }),
+        body: JSON.stringify({
+          question: aiQuestion.trim(),
+          filters: Object.fromEntries(buildDocumentQuery(filters).entries())
+        }),
         signal: AbortSignal.timeout(60000)
       });
       const body = await parse(response);
       if (!response.ok) throw new Error(problem(body.error));
-      setDocs(body.documents || []);
-      setMode('ai');
-      setMessage(body.aiUsed ? t.aiOn : t.aiFallback);
+      if (requestId === requestSequence.current) {
+        setDocs(body.documents || []);
+        setMode('ai');
+        setMessage(body.aiUsed ? t.aiOn : t.aiFallback);
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t.error);
+      if (requestId === requestSequence.current) setError(cause instanceof Error ? cause.message : t.error);
     } finally { setAiSearch(false); }
   }
 
@@ -315,8 +355,8 @@ export default function VaultPanel({ language, email }: { language: Language; em
             <button type="submit" className="min-h-12 shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">{t.find}</button>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 sm:mt-5 sm:flex-wrap" aria-label={language === 'pt' ? 'Tipo de documento' : 'Document type'}>
-            {(['all', 'pdf', 'image'] as const).map(kind => <button key={kind} type="button" onClick={() => setFileKind(kind)}
-              className={'min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ' + (fileKind === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
+            {(['all', 'pdf', 'image'] as const).map(kind => <button key={kind} type="button" onClick={() => quickType(kind)}
+              className={'min-h-10 shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ' + (filters.type === kind ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300')}>
               {kind === 'all' ? t.all : kind === 'pdf' ? t.pdf : t.images}
             </button>)}
           </div>
@@ -337,11 +377,20 @@ export default function VaultPanel({ language, email }: { language: Language; em
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-lg font-semibold">{t.docs}</h2><p className="text-xs text-slate-500">{listedDocs.length} {t.documentsCount}</p></div>
-          {mode !== 'all' && <button className="inline-flex items-center gap-1 text-xs font-semibold text-brand" onClick={() => {setSearch('');setAiQuestion('');setMode('all');void refresh();}}>{t.reset}<X size={14}/></button>}
+          <div className="flex items-center gap-2">
+            {(mode !== 'all' || activeFilters > 0) && <button type="button" className="inline-flex min-h-11 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-slate-500 hover:text-brand" onClick={clearAllFilters}>{t.reset}<X size={14}/></button>}
+            <button type="button" onClick={() => setShowFilters(true)}
+              aria-label={t.filters} aria-haspopup="dialog"
+              className={'inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ' +
+                (activeFilters ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200')}>
+              <SlidersHorizontal size={17}/>{t.filters}
+              {activeFilters > 0 && <span className="flex size-5 items-center justify-center rounded-full bg-brand text-[11px] text-white" aria-label={t.activeFilters}>{activeFilters}</span>}
+            </button>
+          </div>
         </div>
         {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center"><LoaderCircle size={26} className="mx-auto animate-spin text-brand"/></div>
           : listedDocs.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
-            <FolderOpen size={32} className="mx-auto text-indigo-300"/><h3 className="mt-4 font-semibold">{mode === 'all' ? t.empty : t.noResults}</h3><p className="mt-1 text-sm text-slate-500">{mode === 'all' ? t.emptySub : ''}</p></div>
+            <FolderOpen size={32} className="mx-auto text-indigo-300"/><h3 className="mt-4 font-semibold">{mode === 'all' && !activeFilters ? t.empty : t.noResults}</h3><p className="mt-1 text-sm text-slate-500">{mode === 'all' && !activeFilters ? t.emptySub : ''}</p></div>
             : <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {listedDocs.map((doc, index) => (
                 <div key={doc.id} className={'min-w-0 px-4 py-4 sm:flex sm:items-center sm:gap-4 sm:px-5 ' + (index ? 'border-t border-slate-100' : '')}>
@@ -385,6 +434,11 @@ export default function VaultPanel({ language, email }: { language: Language; em
         <p className="mt-2 text-xs font-medium text-amber-700">{t.betaWarning}</p>
         <a className="mt-2 inline-block text-xs font-semibold text-brand underline" href={language === 'pt' ? 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.pt-BR.md' : 'https://github.com/gabrielduclos/arqvo/blob/main/PRIVACY.md'} target="_blank" rel="noreferrer">{t.privacy}</a>
       </div>
+
+      <AnimatePresence>
+        {showFilters && <DocumentFilters key="document-filters" language={language} value={filters}
+          onApply={applyFilters} onClose={() => setShowFilters(false)}/>}
+      </AnimatePresence>
 
       <AnimatePresence>
       {selected && <motion.div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-3"
