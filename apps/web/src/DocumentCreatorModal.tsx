@@ -7,20 +7,20 @@ type Language = 'pt' | 'en';
 type Props = { language: Language; onClose: () => void; onCreate: (file: File, scan: { text: string; confidence: number }) => void };
 const supported = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_PAGES = 15;
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 20 * 1024 * 1024;
 const messages = {
   pt: { heading: 'Scanner de documentos', details: 'Fotografe ou importe as páginas. Ajuste o recorte de cada uma e gere um único PDF.',
     camera: 'Fotografar página', gallery: 'Adicionar imagens', name: 'Nome do documento', page: 'Página', pages: 'páginas',
     empty: 'Adicione a primeira página.', create: 'Gerar PDF e adicionar à fila', creating: 'Gerando documento…',
     close: 'Fechar', up: 'Mover para cima', down: 'Mover para baixo', remove: 'Remover página',
     limit: 'O limite é de 15 páginas.', fileType: 'Envie imagens JPG, PNG ou WebP.',
-    large: 'O PDF ultrapassou 8 MB. Remova algumas páginas.', error: 'Falha ao gerar PDF. Tente novamente.' },
+    large: 'O PDF ultrapassou 20 MB. Remova algumas páginas.', error: 'Falha ao gerar PDF. Tente novamente.' },
   en: { heading: 'Document scanner', details: 'Photograph or import pages. Adjust each crop and create one PDF.',
     camera: 'Take page photo', gallery: 'Add images', name: 'Document name', page: 'Page', pages: 'pages',
     empty: 'Add your first page.', create: 'Create PDF and add to queue', creating: 'Creating document…',
     close: 'Close', up: 'Move up', down: 'Move down', remove: 'Remove page',
     limit: 'Maximum 15 pages.', fileType: 'Choose JPG, PNG or WebP images.',
-    large: 'PDF exceeds 8 MB. Remove some pages.', error: 'Could not create PDF. Try again.' }
+    large: 'PDF exceeds 20 MB. Remove some pages.', error: 'Could not create PDF. Try again.' }
 };
 
 export default function DocumentCreatorModal({ language, onClose, onCreate }: Props) {
