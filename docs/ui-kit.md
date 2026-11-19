@@ -14,7 +14,7 @@
 
 ## Layout, spacing and navigation (reference)
 - Sticky white translucent app bar: **64px on mobile, 72px on desktop**. Brand, language and sign-out remain accessible.
-- **Approved current navigation:** no sidebar. On mobile (<768px), a fixed bottom footer bar with **Overview** and **Documents**, icon + label, active lavender pill, 44px+ touch targets and Android/iOS safe-area inset.
+- **Approved current navigation:** no sidebar. On mobile (<768px), a fixed bottom footer bar with **Overview**, **Documents**, and **Profile**, icon + label, active lavender pill, 44px+ touch targets and Android/iOS safe-area inset.
 - On desktop (>=768px), navigation is horizontal in the header; no lateral menu.
 - The original 252px sidebar and hamburger drawer are **historical prototype artifacts**, explicitly superseded by the owner's mobile-first request.
 - Mobile-first content with 16px horizontal padding and extra bottom spacing so the fixed footer never obscures content. Desktop uses a centered max-width container.
@@ -27,7 +27,7 @@
 - `motion/react` with `AnimatePresence mode="wait"`.
 - Logo splash on initial load: full canvas background, centered icon and **animated horizontal indigo progress bar**, fades out to app.
 - Fade main app in; reduced-motion preference respected via `useReducedMotion()`.
-- Navigating between Overview and Documents: use subtle fade/translate and retain navigational continuity.
+- Navigating between Overview, Documents and Profile: use subtle fade/translate and retain navigational continuity.
 - Document preview modal: backdrop fade and 30px upward motion; closing fades/moves down.
 - Toast: enters from bottom with fade/translate.
 - Avoid jarring snap/cut transitions. The bottom footer is now the intentional approved mobile navigation pattern.
@@ -41,7 +41,7 @@ If future instructions change data flows, API, components or AI behavior, keep t
 [Português](ui-kit.pt-BR.md)
 
 ## Mobile-first update — November 19, 2026
-- Fixed two-tab bottom nav on mobile, top nav on desktop; no sidebar.
+- Fixed three-tab bottom nav on mobile (Overview / Documents / Profile), matching desktop header navigation; no sidebar.
 - 64px mobile header, 72px desktop header, safe area footer and tap-friendly controls.
 - Compact mobile real-data overview, single keyword search, advanced filters, document action rows and bottom sheet.
 - Inputs use 16px font size on small phones to prevent iOS focus zoom.
@@ -61,3 +61,10 @@ If future instructions change data flows, API, components or AI behavior, keep t
 - Remove repeated “Private · only your account” badges from Documents, Overview and document details; signed-in access is already enforced.
 - Keep the actual Privacy Policy link and the automatic AI-processing notice; neither is redundant with authentication.
 - Search has one text input and advanced Filters; no separate All/PDFs/Images pills, no AI search tab or AI search endpoint.
+
+## Authenticated profile and password change
+- Third navigation destination is **Profile**, in both mobile bottom navigation and desktop header; no sidebar or extra file-list screen.
+- Profile shows the authenticated person's real name/email read-only and a password-change form.
+- Require current password, new password (at least 8 characters) and confirmation, with local equality checks, toggle visibility and accessible feedback.
+- Submit through the existing authenticated Better Auth `POST /api/auth/change-password` proxy with `revokeOtherSessions: true`; keep the current session active and revoke others. Do not log, store or track passwords.
+- Source: `apps/web/src/ProfilePanel.tsx` and `apps/web/src/App.tsx`.

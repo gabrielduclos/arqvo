@@ -13,7 +13,7 @@
 
 ## Estrutura original
 - Header branco/translúcido fixo, **64px no mobile e 72px no desktop**; mantém logo, idioma e sair.
-- **Navegação atual autorizada:** sem menu lateral. Em telas menores que 768px, barra de navegação inferior fixa (footer) com **Visão geral** e **Documentos**, ícones e rótulos, estado ativo roxo, alvos amplos e respeito a `env(safe-area-inset-bottom)`.
+- **Navegação atual autorizada:** sem menu lateral. Em telas menores que 768px, barra de navegação inferior fixa (footer) com **Visão geral**, **Documentos** e **Perfil**, ícones e rótulos, estado ativo roxo, alvos amplos e respeito a `env(safe-area-inset-bottom)`.
 - Em telas a partir de 768px, navegação horizontal integrada ao header, sem sidebar. Footer inferior apenas no mobile.
 - O menu lateral de 252px e o hambúrguer são **referências históricas do protótipo**, expressamente substituídos a pedido do proprietário.
 - Área principal mobile-first com padding lateral de 16px no celular e espaço inferior suficiente para o footer fixo, sem encobrir documentos ou ações. Desktop com conteúdo centralizado em largura máxima.
@@ -26,19 +26,19 @@
 - `motion/react` + `AnimatePresence mode="wait"`.
 - Splash com logo centralizado e **barra de progresso índigo animada horizontalmente**, encerrando em fade.
 - Entrada do aplicativo em fade, respeitando `useReducedMotion()`.
-- Troca Visão geral/Documentos com fade/deslocamento curto e sem cortes bruscos.
+- Troca Visão geral/Documentos/Perfil com fade/deslocamento curto e sem cortes bruscos.
 - Modal de prévia: fundo escurecendo em fade, painel sobe 30px; fechamento reverso.
 - Toast surge de baixo com fade.
 - Toda nova interface deve preservar esses movimentos; ajustes de dados, API ou IA não autorizam redesenho visual. A mudança de navegação para footer foi **expressamente aprovada**.
 
 ## Regras do produto
-- Tela inicial de login, depois **Visão geral** com indicadores reais e **Documentos** para os uploads, busca, visualização, exclusão e extração automática por IA.
+- Tela inicial de login, depois **Visão geral** com indicadores reais, **Documentos** para os uploads, busca, visualização, exclusão e extração automática por IA e **Perfil** para consultar nome/e-mail e alterar a senha.
 - **Não restaurar a sidebar:** a decisão mobile-first com navegação footer (e header no desktop) substitui o layout histórico. Evitar outro redesign sem solicitação explícita.
 - Conferir sempre os arquivos congelados antes de editar componentes.
 
 ## Revisão mobile-first — 19/11/2026
 - Header de 64px no celular e 72px no desktop.
-- Footer fixo no celular com duas rotas, destaque animado via `motion/react` e safe area Android/iOS.
+- Footer fixo no celular com três rotas (Visão geral, Documentos, Perfil), destaque animado via `motion/react` e safe area Android/iOS.
 - Navegação desktop no cabeçalho, menu lateral abolido.
 - Conteúdo responsivo, inputs com fonte mínima de 16px no iOS, preview em bottom sheet e pesquisa textual única com filtros avançados.
 - Somente documentos e métricas reais, com animações preservadas.
@@ -61,3 +61,11 @@
 - A autenticação permanece obrigatória; as mensagens promocionais de privacidade não devem se repetir dentro do aplicativo.
 - Manter acesso à Política de Privacidade e aviso sobre tratamento automático dos arquivos por IA; são informações legais/operacionais distintas.
 - Pesquisa documental: **um único campo de texto com Filtros avançados**, sem pills Todos/PDFs/Imagens, sem alternância Buscar/Pesquisar com IA e sem endpoint de busca por IA.
+
+## Perfil autenticado e alteração de senha
+- Três itens no footer mobile e na navegação horizontal desktop: **Visão geral**, **Documentos**, **Perfil**. Sem reintroduzir sidebar ou tela “Meus arquivos”.
+- **Perfil** exibe nome e e-mail reais do usuário autenticado, somente leitura nesta etapa, e formulário de alteração de senha.
+- Pedir senha atual, nova senha (mínimo de 8 caracteres) e confirmação; mostrar/ocultar sem persistir as senhas e validar igualdade antes do envio.
+- Enviar exclusivamente a Better Auth `POST /api/auth/change-password` autenticada, com `revokeOtherSessions: true`, preservando a sessão atual e encerrando as outras. Senhas não devem ser registradas em logs/analytics.
+- Mensagens de erro/sucesso concisas, bilíngues e acessíveis; nenhum aviso repetitivo de privacidade.
+- Referência ativa: `apps/web/src/ProfilePanel.tsx` e `apps/web/src/App.tsx`; não criar um segundo mecanismo de autenticação.

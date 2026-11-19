@@ -10,11 +10,11 @@ O **Arqvo** é um organizador open source, responsivo e focado em recibos, notas
 
 > **Atenção — beta:** o cadastro, autenticação e módulo de documentos estão implementados; ainda falta validar o fluxo completo com uma conta real de e-mail confirmado. Não é um cofre financeiro auditado nem deve ser a única cópia de documentos importantes. O aplicativo abre na tela de login. Após entrar, **Visão geral** exibe indicadores reais da conta, e **Documentos** contém os uploads reais. Não são exibidos documentos de demonstração.
 
-**Interface mobile-first:** navegação inferior fixa no celular (Visão geral e Documentos), sem menu lateral; no desktop, navegação no cabeçalho. Layout e visualização otimizados para toque, preview em bottom sheet e indicadores reais.
+**Interface mobile-first:** navegação inferior fixa no celular (Visão geral, Documentos e Perfil), sem menu lateral; no desktop, navegação no cabeçalho. Layout e visualização otimizados para toque, preview em bottom sheet e indicadores reais.
 
 ## Funcionalidades
 
-- Cadastro e login com Better Auth, confirmação obrigatória de e-mail e recuperação de senha pelo Resend.
+- Cadastro e login com Better Auth, confirmação obrigatória de e-mail, recuperação de senha pelo Resend e **alteração de senha na tela Perfil**, exigindo a senha atual e encerrando as demais sessões.
 - Envio de PDF/JPG/PNG/WebP ao Cloudflare R2 privado, com verificação do conteúdo e limites de 8 MB por arquivo e 100 documentos por conta.
 - Download do original, prévia de imagens, listagem, pesquisa avançada (estabelecimento, datas, valores, tipo, análise e ordenação), exclusão e metadados estruturados no PostgreSQL. Informações de envio acessíveis pelo ícone ⓘ.
 - **Análise automática com IA:** após o upload, Cloudflare Workers AI tenta extrair texto e sugerir estabelecimento, data e valor em reais. Fotos JPEG/PNG/WebP usam modelo visual/OCR; o tratamento é informado antes do envio. Confira os resultados com o documento original.

@@ -10,11 +10,11 @@
 
 > **Beta warning:** The account area and document management are implemented; full end-to-end testing with a verified real account is still pending. Not an audited financial vault or the only safe backup for important documents. The application now opens to the login page. After signing in, **Overview** shows live account statistics and **Documents** contains real uploads. No sample documents are displayed.
 
-**Mobile-first UI:** a fixed bottom navigation for Overview and Documents on phones (no sidebar); horizontal navigation in the desktop header. Touch-friendly cards, a bottom-sheet preview and live account summaries.
+**Mobile-first UI:** a fixed bottom navigation for Overview, Documents and Profile on phones (no sidebar); horizontal navigation in the desktop header. Touch-friendly cards, a bottom-sheet preview and live account summaries.
 
 ## Features
 
-- Email/password signup and sign-in with Better Auth, mandatory email verification and password reset (Resend).
+- Email/password signup and sign-in with Better Auth, mandatory email verification, password reset (Resend), and an **authenticated Profile password-change screen** that requires the current password and revokes other sessions.
 - Owner-scoped PDF/JPG/PNG/WebP upload to private Cloudflare R2, with magic-byte checks, 8 MB/file and 100 documents/account limits.
 - Original-file download, image preview, advanced filtering (merchant, dates, amounts, type, extraction status, sorting), deletion and structured metadata in PostgreSQL. Upload information is accessible via an ⓘ icon.
 - **Automatic AI analysis:** after each upload, Cloudflare Workers AI attempts to read the document and suggests merchant, date and amount in BRL; JPEG/PNG/WebP use a vision/OCR model. The upload screen explains this processing. AI suggestions can be wrong, so always compare them to the original.
