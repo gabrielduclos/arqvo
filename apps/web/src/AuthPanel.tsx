@@ -22,7 +22,7 @@ const phrases = {
     sent: 'Se houver uma conta, enviaremos instruções por e-mail.',
     changed: 'Senha atualizada. Você pode entrar novamente.',
     invalid: 'Não foi possível concluir a solicitação. Confira seus dados e tente novamente.',
-    min: 'Use pelo menos 12 caracteres.', logout: 'Sair da conta', welcome: 'Sessão iniciada',
+    min: 'Use pelo menos 8 caracteres.', logout: 'Sair da conta', welcome: 'Sessão iniciada',
     demo: 'A organização de documentos reais continua em desenvolvimento.',
     secure: 'Acesso protegido com Better Auth',
     unavailable: 'Link de recuperação inválido ou ausente.',
@@ -37,7 +37,7 @@ const phrases = {
     sent: 'If an account exists, we will email instructions.',
     changed: 'Password updated. You can sign in again.',
     invalid: 'We could not complete that request. Check your details and retry.',
-    min: 'Use at least 12 characters.', logout: 'Sign out', welcome: 'Signed in',
+    min: 'Use at least 8 characters.', logout: 'Sign out', welcome: 'Signed in',
     demo: 'Real document organization is still under development.',
     secure: 'Protected by Better Auth',
     unavailable: 'Invalid or missing password reset link.',
@@ -95,7 +95,7 @@ export default function AuthPanel({ language, status, onClose }: {
     setBusy(true);
     setError('');
     setMessage('');
-    if (mode !== 'forgot' && password.length < 12) {
+    if (mode !== 'forgot' && password.length < 8) {
       setError(t.min);
       setBusy(false);
       return;
@@ -183,7 +183,7 @@ export default function AuthPanel({ language, status, onClose }: {
               )}
               {mode !== 'forgot' && (
                 <label className="block text-xs font-semibold text-slate-600">{mode === 'reset' ? t.newPassword : t.password}
-                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><LockKeyhole size={17} className="text-slate-400"/><input required minLength={12} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={e => setPassword(e.target.value)} className="min-w-0 flex-1 text-sm outline-none" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-slate-400">{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span>
+                  <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3"><LockKeyhole size={17} className="text-slate-400"/><input required minLength={8} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={e => setPassword(e.target.value)} className="min-w-0 flex-1 text-sm outline-none" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-slate-400">{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></span>
                 </label>
               )}
               {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</p>}

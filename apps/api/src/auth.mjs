@@ -79,7 +79,7 @@ export function createArqvoAuth({
       disableSignUp: !publicSignUpEnabled,
       requireEmailVerification: true,
       revokeSessionsOnPasswordReset: true,
-      minPasswordLength: 12,
+      minPasswordLength: 8,
       sendResetPassword: async ({ user, url }) => deliver('reset', user, url)
     },
     emailVerification: {

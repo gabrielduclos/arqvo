@@ -14,7 +14,7 @@
 ## What has been done / O que foi feito
 - [x] Migration [002_better_auth.sql](database/002_better_auth.sql) applied on Neon `arqvo` main with approval on 2026-11-19. Four tables and nine indexes verified; temporary branch removed.
 - [x] Resend transport code implemented with tests and safe error handling.
-- [x] Better Auth verification and password-reset callbacks prepared; 12-character minimum password, sessions revoked on password reset.
+- [x] Better Auth verification and password-reset callbacks prepared; 8-character minimum password, sessions revoked on password reset.
 - [x] Public `/api/auth/status` endpoint for the frontend (booleans only).
 - [x] Login/register/reset UI supports feature flags; it doesn't activate when auth is disabled.
 - [ ] Independently verify `uorqui.app` is **Verified** in Resend (operator reports configuration completed; DNS records are present on Cloudflare).

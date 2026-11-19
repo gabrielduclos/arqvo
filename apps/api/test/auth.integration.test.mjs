@@ -36,7 +36,7 @@ test('Better Auth verified-email signup, login, session and logout with local Po
     try {
       const created = await app.inject({
         method: 'POST', url: '/api/auth/sign-up/email', headers,
-        payload: { name: 'Arqvo Test', email, password: 'strong-password-12345' }
+        payload: { name: 'Arqvo Test', email, password: 'Aq7!x9pQ' }
       });
       assert.equal(created.statusCode, 200, created.body);
       const sent = await Promise.race([
@@ -48,7 +48,7 @@ test('Better Auth verified-email signup, login, session and logout with local Po
 
       const before = await app.inject({
         method: 'POST', url: '/api/auth/sign-in/email', headers,
-        payload: { email, password: 'strong-password-12345' }
+        payload: { email, password: 'Aq7!x9pQ' }
       });
       assert.equal(before.statusCode, 403, before.body);
 
@@ -61,7 +61,7 @@ test('Better Auth verified-email signup, login, session and logout with local Po
 
       const loggedIn = await app.inject({
         method: 'POST', url: '/api/auth/sign-in/email', headers,
-        payload: { email, password: 'strong-password-12345' }
+        payload: { email, password: 'Aq7!x9pQ' }
       });
       assert.equal(loggedIn.statusCode, 200, loggedIn.body);
       const setCookie = loggedIn.headers['set-cookie'];
