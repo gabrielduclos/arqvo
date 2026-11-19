@@ -329,7 +329,18 @@ function merchantFromText(text: string): string {
     );
     if (match && match[1].trim().length >= 4) return match[1].trim().slice(0, 160);
   }
-  return '';
+  // Most small shop receipts print the issuer as a bare headline.
+  // Only inspect the first lines; do not confuse a purchased line item
+  // or document heading with the merchant name.
+  const header = lines.slice(0, 8).map(line => line.trim()).find(line =>
+    line.length >= 5 && line.length <= 80 &&
+    /[a-zA-ZÀ-ÿ]{3}/.test(line) &&
+    !/^\d/.test(line) &&
+    !/^(?:cnpj|cpf|nota|cupom|recibo|documento|danfe|nfc.?e|emitid|data|hora|endere[cç]o|telefone|tel\.?|total|valor|p[aá]gina|chave|protocolo|extrato|consumidor|obrigado|obrigada|pedido)\b/i.test(line) &&
+    !/\b(?:R\$|www\.|https?:|@)\b/i.test(line) &&
+    !/\b(?:\d{2}[./-]\d{2}[./-]\d{2,4}|\d{2}:\d{2})\b/.test(line)
+  );
+  return header?.slice(0, 160) || '';
 }
 
 // Category must be grounded in the purchased item section, not in a seller name
@@ -438,28 +449,13 @@ async function readDocumentText(
   return { text: result.data.trim().slice(0,25000), method: 'document-conversion' };
 }
 
-async function handleAnalyze(request: Request, env: Env, id: string): Promise<Response> {
-  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
-  const user = await authorized(request, env);
-  if (!user) return fail(401, 'unauthorized');
-  const doc = await getOwnerDocument(request, env, id);
-  if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/')) return fail(404, 'document_not_found');
-  if (doc.sizeBytes > ANALYSIS_BYTES) return fail(413, 'file_too_large_for_ai');
-  const object = await env.DOCS_BUCKET.get(doc.objectKey);
-  if (!object) return fail(404, 'file_not_found');
 
-  let extractedText = '';
-  let method = '';
-  try {
-    const extracted = await readDocumentText(env, doc.filename, doc.mimeType, await object.arrayBuffer());
-    extractedText = extracted.text; method = extracted.method;
-    if (!extractedText) return fail(422, 'ai_text_extraction_failed');
-  } catch { return fail(503, 'ai_processing_unavailable'); }
-
-  let fields: Record<string, any> | null = null;
-  try { fields = await inferFields(env, extractedText); }
-  catch { /* Keep text for search, never fabricate structured values. */ }
-
+// Shared server-side validation and saving for local OCR and AI OCR.
+// All extracted fields remain suggestions; manually corrected fields win in the API.
+async function persistDocumentAnalysis(
+  request: Request, env: Env, id: string, extractedText: string,
+  fields: Record<string, any> | null, method: string, aiUsed: boolean
+): Promise<Response> {
   const labelledMerchant = merchantFromText(extractedText);
   const merchant = labelledMerchant || (
     typeof fields?.merchant === 'string' && fields.merchant.length <= 160
@@ -492,9 +488,72 @@ async function handleAnalyze(request: Request, env: Env, id: string): Promise<Re
     textLength: extractedText.length,
     usefulFields,
     method,
+    aiUsed,
     extractionState: usefulFields >= 2 ? 'structured' : usefulFields ? 'partial' : 'text_only',
     warning: usefulFields ? 'Check suggested values against the original.' : 'Text found, but merchant, date and amount could not be identified.'
   });
+}
+
+
+async function handleLocalScan(request: Request, env: Env, id: string): Promise<Response> {
+  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+  const length = Number(request.headers.get('content-length') || 0);
+  if (length > 32000) return fail(413, 'scan_too_large');
+  const payload = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!payload || typeof payload !== 'object' ||
+      typeof payload.text !== 'string' || payload.text.length > 25000 ||
+      typeof payload.confidence !== 'number' || !Number.isFinite(payload.confidence) ||
+      payload.confidence < 0 || payload.confidence > 100) return fail(400, 'invalid_scan');
+  const text = payload.text.trim();
+  // If OCR did not yield readable text, reuse the existing vision pipeline.
+  if (text.length < 30 || payload.confidence < 35) {
+    return handleAnalyze(request, env, id);
+  }
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  const doc = await getOwnerDocument(request, env, id);
+  if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/') ||
+      !doc.mimeType.startsWith('image/')) return fail(404, 'document_not_found');
+
+  const hints = readReceiptHints(text);
+  const merchant = merchantFromText(text);
+  const item = categoryFromItems(text);
+  // Avoid generative inference for clear receipts; the original remains in R2.
+  // When any key information is unclear, send ONLY OCR text (not the photo)
+  // for one lightweight structured inference call.
+  let fields: Record<string, any> | null = null;
+  let aiUsed = false;
+  if (!merchant || !hints.date || hints.amountCents === null || !item) {
+    try {
+      aiUsed = true;
+      fields = await inferFields(env, text);
+    } catch { /* Local text, validated hints and original document stay saved. */ }
+  }
+  return persistDocumentAnalysis(request, env, id, text, fields, 'local-ocr', aiUsed);
+}
+
+async function handleAnalyze(request: Request, env: Env, id: string): Promise<Response> {
+  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  const doc = await getOwnerDocument(request, env, id);
+  if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/')) return fail(404, 'document_not_found');
+  if (doc.sizeBytes > ANALYSIS_BYTES) return fail(413, 'file_too_large_for_ai');
+  const object = await env.DOCS_BUCKET.get(doc.objectKey);
+  if (!object) return fail(404, 'file_not_found');
+
+  let extractedText = '';
+  let method = '';
+  try {
+    const extracted = await readDocumentText(env, doc.filename, doc.mimeType, await object.arrayBuffer());
+    extractedText = extracted.text; method = extracted.method;
+    if (!extractedText) return fail(422, 'ai_text_extraction_failed');
+  } catch { return fail(503, 'ai_processing_unavailable'); }
+
+  let fields: Record<string, any> | null = null;
+  try { fields = await inferFields(env, extractedText); }
+  catch { /* Save OCR text and deterministic fields even if inference is unavailable. */ }
+  return persistDocumentAnalysis(request, env, id, extractedText, fields, method, true);
 }
 
 
@@ -517,6 +576,8 @@ export default {
       if (file && request.method === 'GET') return handleFile(request, env, file);
       const analyze = docId(path, '/analyze');
       if (analyze && request.method === 'POST') return handleAnalyze(request, env, analyze);
+      const localScan = docId(path, '/scan');
+      if (localScan && request.method === 'POST') return handleLocalScan(request, env, localScan);
       const document = docId(path);
       if (document) {
         if (request.method === 'DELETE') return handleDelete(request, env, document);
