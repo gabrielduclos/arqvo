@@ -13,7 +13,7 @@ type Props = {
 const labels = {
   pt: {
     title: 'Digitalizar documento',
-    help: 'Arraste sobre a imagem para recortar. Ajuste antes de salvar; o arquivo original será preservado.',
+    help: 'O recorte é sugerido automaticamente quando possível. Arraste para ajustar; o original será preservado.',
     crop: 'Recortar', clear: 'Remover corte', rotate: 'Girar 90°', enhance: 'Melhorar leitura',
     save: 'Digitalizar e salvar', cancel: 'Cancelar',
     reading: 'Reconhecendo texto no dispositivo…',
@@ -23,7 +23,7 @@ const labels = {
   },
   en: {
     title: 'Scan document',
-    help: 'Drag over the image to crop. Adjust before saving; the original file will be preserved.',
+    help: 'A crop is suggested automatically when possible. Drag to adjust it; the original file is preserved.',
     crop: 'Crop', clear: 'Clear crop', rotate: 'Rotate 90°', enhance: 'Improve readability',
     save: 'Scan and save', cancel: 'Cancel',
     reading: 'Recognizing text on your device…',
@@ -47,7 +47,9 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
   useEffect(() => {
     let active = true;
     void scanPreview(file, { rotation, enhance, crop: FULL_CROP })
-      .then(result => { if (active) setPreview(result); })
+      .then(result => {
+        if (active) { setPreview(result.src); setCrop(result.suggestedCrop ?? FULL_CROP); }
+      })
       .catch(() => { if (active) setError(t.fallback); });
     return () => { active = false; };
   }, [file, rotation, enhance]);
