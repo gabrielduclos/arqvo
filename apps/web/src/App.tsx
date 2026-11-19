@@ -208,16 +208,20 @@ export default function App() {
       </header>
       <main id="main-content" className="mx-auto w-full max-w-[1200px] px-4 pb-32 pt-6 sm:px-6 sm:pt-8 md:px-8 md:pb-14 lg:pt-10">
         {connectionError && <div role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t.unavailable}</div>}
+        {/* Keep the document view mounted so an in-browser upload queue keeps
+            processing when the user visits Overview or Profile. */}
+        <div className={section === 'documents' ? '' : 'hidden'}>
+          <VaultPanel language={language} email={user.email} initialView={documentView}/>
+        </div>
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={section} initial={reducedMotion ? {} : { opacity: 0, y: 12 }}
+          {section !== 'documents' && <motion.div key={section}
+            initial={reducedMotion ? {} : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? {} : { opacity: 0, y: -8 }}
             transition={{ duration: reducedMotion ? 0 : .22, ease: 'easeOut' }}>
             {section === 'overview'
               ? <OverviewPanel language={language} onOpenDocuments={(view = 'all') => chooseSection('documents', view)}/>
-              : section === 'documents'
-                ? <VaultPanel language={language} email={user.email} initialView={documentView}/>
-                : <ProfilePanel language={language} user={user}/>}
-          </motion.div>
+              : <ProfilePanel language={language} user={user}/>}
+          </motion.div>}
         </AnimatePresence>
         <footer className="mt-12 hidden flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400 md:flex">
           <span>© 2026 Arqvo · MIT · {t.beta}</span>
