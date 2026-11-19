@@ -1,6 +1,6 @@
 import { fromNodeHeaders } from 'better-auth/node';
 
-export const MAX_FILE_BYTES = 8 * 1024 * 1024;
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_MIME = new Set([
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp'
 ]);
