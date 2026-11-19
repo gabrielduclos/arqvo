@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { CalendarDays, Check, FileSearch, SlidersHorizontal, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import { categoryOptions, type DocumentCategoryCode } from './documentCategories';
 
 export type DocumentFilterValues = {
   merchant: string;
+  category: DocumentCategoryCode | 'all';
   type: 'all' | 'pdf' | 'image';
   analysis: 'all' | 'ready' | 'partial' | 'text_only' | 'pending' | 'failed';
   dateBy: 'document' | 'uploaded';
@@ -16,7 +18,7 @@ export type DocumentFilterValues = {
 };
 
 export const emptyDocumentFilters: DocumentFilterValues = {
-  merchant: '', type: 'all', analysis: 'all', dateBy: 'document',
+  merchant: '', category: 'all', type: 'all', analysis: 'all', dateBy: 'document',
   dateFrom: '', dateTo: '', amountFrom: '', amountTo: '', sort: 'newest'
 };
 
@@ -42,7 +44,7 @@ function moneyCents(raw: string): number | null {
 }
 
 export function countDocumentFilters(filters: DocumentFilterValues): number {
-  return Number(Boolean(filters.merchant.trim())) + Number(filters.type !== 'all') +
+  return Number(Boolean(filters.merchant.trim())) + Number(filters.category !== 'all') + Number(filters.type !== 'all') +
     Number(filters.analysis !== 'all') + Number(Boolean(filters.dateFrom || filters.dateTo)) +
     Number(Boolean(filters.amountFrom || filters.amountTo)) + Number(filters.sort !== 'newest');
 }
@@ -60,6 +62,7 @@ export function buildDocumentQuery(filters: DocumentFilterValues, query = ''): U
   const params = new URLSearchParams();
   if (query.trim()) params.set('q', query.trim().slice(0, 160));
   if (filters.merchant.trim()) params.set('merchant', filters.merchant.trim().slice(0, 150));
+  if (filters.category !== 'all') params.set('category', filters.category);
   if (filters.type !== 'all') params.set('type', filters.type);
   if (filters.analysis !== 'all') params.set('analysis', filters.analysis);
   if (filters.dateFrom) params.set(filters.dateBy === 'document' ? 'dateStart' : 'uploadStart', filters.dateFrom);
@@ -76,6 +79,7 @@ const labels = {
   pt: {
     title: 'Filtrar documentos', subtitle: 'Combine os critérios para encontrar o documento certo.',
     merchant: 'Estabelecimento', merchantExample: 'Ex.: farmácia, mercado...',
+    category: 'Categoria da compra', categoryAll: 'Todas as categorias',
     type: 'Tipo de arquivo', typeAll: 'Todos', pdf: 'PDF', image: 'Imagens',
     analysis: 'Situação da análise', analysisAll: 'Todas', ready: 'Dados identificados',
     partial: 'Dados parciais', text_only: 'Somente texto extraído', pending: 'Aguardando análise', failed: 'Falhou',
@@ -91,6 +95,7 @@ const labels = {
   en: {
     title: 'Filter documents', subtitle: 'Combine criteria to find the right document.',
     merchant: 'Merchant', merchantExample: 'e.g. pharmacy, grocery...',
+    category: 'Purchase category', categoryAll: 'All categories',
     type: 'File type', typeAll: 'All', pdf: 'PDF', image: 'Images',
     analysis: 'Analysis status', analysisAll: 'Any', ready: 'Data identified',
     partial: 'Partial data', text_only: 'Text only', pending: 'Awaiting analysis', failed: 'Failed',
@@ -164,6 +169,17 @@ export default function DocumentFilters({
             <label htmlFor="arqvo-merchant" className={legend}>{t.merchant}</label>
             <input id="arqvo-merchant" value={draft.merchant} maxLength={150} placeholder={t.merchantExample}
               className={input} onChange={e => update('merchant', e.target.value)}/>
+          </div>
+          <div>
+            <label htmlFor="arqvo-category" className={legend}>{t.category}</label>
+            <select id="arqvo-category" value={draft.category}
+              onChange={e => update('category', e.target.value as DocumentFilterValues['category'])}
+              className={input}>
+              <option value="all">{t.categoryAll}</option>
+              {categoryOptions(language).map(item =>
+                <option key={item.value} value={item.value}>{item.label}</option>
+              )}
+            </select>
           </div>
           <div>
             <p className={legend}>{t.type}</p>
