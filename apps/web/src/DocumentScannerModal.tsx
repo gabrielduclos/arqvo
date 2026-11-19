@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Check, Crop, LoaderCircle, RotateCw, ScanLine, Sparkles, X } from 'lucide-react';
-import { FULL_CROP, readScan, scanPreview, makeScanPage, type ScanCrop } from './documentScanner';
+import { FULL_CROP, readScan, scanPreview, type ScanCrop } from './documentScanner';
 
 type Language = 'pt' | 'en';
 type Props = {
   file: File;
   language: Language;
   onClose: () => void;
-  onScanned?: (text: string, confidence: number) => void;
-  onPage?: (image: Blob, text: string, confidence: number) => void;
+  onScanned: (text: string, confidence: number) => void;
 };
 
 const labels = {
@@ -16,7 +15,7 @@ const labels = {
     title: 'Digitalizar documento',
     help: 'O recorte é sugerido automaticamente quando possível. Arraste para ajustar; o original será preservado.',
     crop: 'Recortar', clear: 'Remover corte', rotate: 'Girar 90°', enhance: 'Melhorar leitura',
-    save: 'Digitalizar e salvar', pageSave: 'Adicionar página', cancel: 'Cancelar',
+    save: 'Digitalizar e salvar', cancel: 'Cancelar',
     reading: 'Reconhecendo texto no dispositivo…',
     preparing: 'Preparando imagem…',
     fallback: 'OCR local indisponível. O Arqvo tentará a leitura por IA depois de salvar.',
@@ -26,7 +25,7 @@ const labels = {
     title: 'Scan document',
     help: 'A crop is suggested automatically when possible. Drag to adjust it; the original file is preserved.',
     crop: 'Crop', clear: 'Clear crop', rotate: 'Rotate 90°', enhance: 'Improve readability',
-    save: 'Scan and save', pageSave: 'Add page', cancel: 'Cancel',
+    save: 'Scan and save', cancel: 'Cancel',
     reading: 'Recognizing text on your device…',
     preparing: 'Preparing image…',
     fallback: 'Local OCR unavailable. Arqvo will try AI extraction after saving.',
@@ -34,7 +33,7 @@ const labels = {
   }
 };
 
-export default function DocumentScannerModal({ file, language, onClose, onScanned, onPage }: Props) {
+export default function DocumentScannerModal({ file, language, onClose, onScanned }: Props) {
   const t = labels[language];
   const [rotation, setRotation] = useState(0);
   const [enhance, setEnhance] = useState(true);
@@ -103,29 +102,11 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
     setProcessing(true);
     setError('');
     setPercentage(0);
-    if (onPage) {
-      // A page may be saved even when the browser OCR engine cannot read it.
-      let text = '';
-      let confidence = 0;
-      try {
-        const result = await readScan(file, { rotation, enhance, crop }, setPercentage);
-        text = result.text;
-        confidence = result.confidence;
-      } catch { /* Still include the visible page in the generated PDF. */ }
-      try {
-        const image = await makeScanPage(file, { rotation, enhance, crop });
-        onPage(image, text, confidence);
-      } catch {
-        setError(language === 'pt' ? 'Não foi possível preparar esta página.' : 'Unable to prepare this page.');
-        setProcessing(false);
-      }
-      return;
-    }
     try {
       const result = await readScan(file, { rotation, enhance, crop }, setPercentage);
-      onScanned?.(result.text, result.confidence);
+      onScanned(result.text, result.confidence);
     } catch {
-      onScanned?.('', 0);
+      onScanned('', 0);
     } finally {
       setProcessing(false);
     }
@@ -188,7 +169,7 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
           <button type="button" disabled={processing} onClick={() => void scan()}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">
             {processing ? <LoaderCircle size={18} className="animate-spin"/> : <ScanLine size={18}/>}
-            {processing ? t.reading : onPage ? t.pageSave : t.save}
+            {processing ? t.reading : t.save}
           </button>
         </div>
       </div>
