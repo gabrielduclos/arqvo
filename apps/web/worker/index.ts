@@ -281,6 +281,37 @@ function normalizeDocumentDate(value: unknown): string | null {
   return [String(yyyy), String(mm).padStart(2,'0'), String(dd).padStart(2,'0')].join('-');
 }
 
+// Deterministic fallback when the model cannot return structured data.
+// Only clearly labelled Brazilian total amounts are considered; never
+// fabricate an amount from arbitrary line-item prices.
+function readReceiptHints(text: string): { date: string | null; amountCents: number | null } {
+  const lines = text.split(/\r?\n/).slice(0, 500);
+  const labelledDates = lines.filter(line => /\b(data|emiss[aã]o|emitido|date)\b/i.test(line));
+  const datePattern = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})\b/g;
+  let date: string | null = null;
+  for (const line of [...labelledDates, ...lines]) {
+    for (const match of line.matchAll(datePattern)) {
+      date = normalizeDocumentDate(match[1]);
+      if (date) break;
+    }
+    if (date) break;
+  }
+  const totalLines = lines.filter(line =>
+    /\b(total|valor\s+pago|valor\s+a\s+pagar|valor\s+total|total\s+da\s+nota)\b/i.test(line));
+  const moneyPattern = /(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})(?!\d)/g;
+  let amountCents: number | null = null;
+  for (const line of totalLines) {
+    const amounts = [...line.matchAll(moneyPattern)];
+    if (!amounts.length) continue;
+    const last = amounts[amounts.length - 1][1];
+    const value = Math.round(Number(last.replace(/\./g, '').replace(',', '.')) * 100);
+    if (Number.isSafeInteger(value) && value >= 0 && value <= 100000000000) {
+      amountCents = value;
+    }
+  }
+  return { date, amountCents };
+}
+
 function imageDataUri(mime: string, input: ArrayBuffer): string {
   const source = new Uint8Array(input);
   let chars = '';
@@ -345,9 +376,13 @@ async function handleAnalyze(request: Request, env: Env, id: string): Promise<Re
 
   const merchant = typeof fields?.merchant === 'string' && fields.merchant.length <= 160
     ? fields.merchant.trim() : '';
-  const date = normalizeDocumentDate(fields?.document_date);
-  const amount = Number.isSafeInteger(fields?.amount_cents) && fields.amount_cents >= 0
-    && fields.amount_cents <= 100000000000 ? fields.amount_cents : null;
+  const hints = readReceiptHints(extractedText);
+  const date = normalizeDocumentDate(fields?.document_date) ?? hints.date;
+  const numericAmount = typeof fields?.amount_cents === 'string' && /^\d{1,12}$/.test(fields.amount_cents)
+    ? Number(fields.amount_cents) : fields?.amount_cents;
+  const modelAmount = Number.isSafeInteger(numericAmount) && numericAmount >= 0
+    && numericAmount <= 100000000000 ? numericAmount : null;
+  const amount = hints.amountCents ?? modelAmount;
   const usefulFields = Number(Boolean(merchant)) + Number(Boolean(date)) + Number(amount !== null);
 
   const result = await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', {
