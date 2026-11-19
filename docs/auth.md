@@ -9,7 +9,7 @@
 - R2 bucket `arqvo-documents`: private, bound to Cloudflare Worker as `DOCS_BUCKET`; no storage endpoints exposed yet.
 
 ## Activation checklist / Checklist de ativação
-1. Review and test the [Better Auth migration](database/002_better_auth.sql) on a temporary Neon branch. Apply to **Arqvo** only after explicit approval.
+1. [x] Review, test and apply the [Better Auth migration](database/002_better_auth.sql) to **Arqvo main** after explicit approval on 2026-11-19. Migration ID: `49d149e3-2172-418b-a739-03c7e695a96a`. Four tables and nine indexes verified; temporary branch deleted.
 2. Verify that the installed Better Auth version's generated schema matches the migration.
 3. Configure `BETTER_AUTH_SECRET` (>= 32 random bytes) and `BETTER_AUTH_URL` as Render secrets.
 4. Provide a verified transactional email sender before enabling public registration or password recovery.

@@ -28,7 +28,7 @@ Se a integração não permitir indicar o diretório raiz, configure pela raiz:
 - Start: `npm --prefix apps/api start`
 
 ## Better Auth (preparado)
-A API Render contém integração Fastify com Better Auth. `BETTER_AUTH_SECRET` e `BETTER_AUTH_URL` estão configurados; `AUTH_ENABLED=false` até aprovação e validação do login. O esquema `docs/database/002_better_auth.sql` foi testado apenas em branch temporária Neon. Não considerar autenticação ativa antes de revisar/aplicar migração, configurar verificação de e-mail e testar sessões/cookies. Consulte [auth.md](auth.md).
+A API Render contém integração Fastify com Better Auth. `BETTER_AUTH_SECRET` e `BETTER_AUTH_URL` estão configurados; `AUTH_ENABLED=false` até aprovação e validação do login. O esquema `docs/database/002_better_auth.sql` foi aprovado e aplicado ao Neon **Arqvo main** em 2026-11-19; quatro tabelas e nove índices verificados, branch temporária excluída. Autenticação NÃO está ativa: falta configurar verificação de e-mail, habilitar com segurança e testar sessões/cookies. Consulte [auth.md](auth.md).
 
 ## Neon
 Projeto separado do Uorqui. Nunca reutilizar string de conexão ou credenciais do Uorqui. A [migração proposta](database/001_initial.sql) **não foi aplicada**.

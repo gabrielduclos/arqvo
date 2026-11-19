@@ -28,7 +28,7 @@ If using a service-creation connector that cannot set Root Directory, use the re
 - Start: `npm --prefix apps/api start`
 
 ## Better Auth (staged)
-The Render API contains a Better Auth Fastify integration. `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are set as environment configuration; `AUTH_ENABLED=false` until approval and complete login verification. The core-schema migration `docs/database/002_better_auth.sql` has been tested on a temporary Neon branch only. Do not mark authentication as live before applying a reviewed migration, setting up email verification, enabling auth and testing sign-in/session/cookie flows. See [auth.md](auth.md).
+The Render API contains a Better Auth Fastify integration. `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are set as environment configuration; `AUTH_ENABLED=false` until approval and complete login verification. The core-schema migration `docs/database/002_better_auth.sql` was approved and applied to Neon **Arqvo main** on 2026-11-19; four tables and nine indexes verified, temporary branch deleted. Authentication is NOT live: configure verified email, enable auth after review, and test sign-in/session/cookie flows. See [auth.md](auth.md).
 
 ## Neon
 The Neon project is independent from Uorqui. Never reuse Uorqui's connection string or role. The migration [001_initial.sql](database/001_initial.sql) is a reviewable proposal only, **not applied**.
