@@ -3,12 +3,9 @@
   "name": "arqvo",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-11-19",
-  "vars": {
-    "API_ORIGIN": "https://arqvo-api.onrender.com"
-  },
-  "r2_buckets": [
-    { "binding": "DOCS_BUCKET", "bucket_name": "arqvo-documents" }
-  ],
+  "ai": { "binding": "AI" },
+  "vars": { "API_ORIGIN": "https://arqvo-api.onrender.com" },
+  "r2_buckets": [{ "binding": "DOCS_BUCKET", "bucket_name": "arqvo-documents" }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

@@ -3,6 +3,7 @@ import pg from 'pg';
 import { fromNodeHeaders } from 'better-auth/node';
 import { createArqvoAuth } from './auth.mjs';
 import { createResendMailer } from './email.mjs';
+import { registerDocumentRoutes } from './documents.mjs';
 
 export function buildApp({
   databaseUrl = process.env.DATABASE_URL,
@@ -89,6 +90,8 @@ export function buildApp({
       return reply.code(503).send({ error: 'authentication_unavailable' });
     }
   });
+
+  registerDocumentRoutes(app, { pool, auth, authBaseURL });
 
   app.addHook('onClose', async () => {
     if (pool) await pool.end();

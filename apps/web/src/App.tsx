@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import AuthPanel, { type AuthStatus } from './AuthPanel';
+import VaultPanel from './VaultPanel';
 import {
   Archive, ArrowDownToLine, ArrowRight, CalendarDays, CheckCircle2,
   ChevronDown, FileImage, FileText, FolderOpen, LayoutDashboard, LockKeyhole,
@@ -10,7 +11,7 @@ import {
 
 type Language = 'pt' | 'en';
 type Category = 'all' | 'invoice' | 'receipt' | 'payment';
-type View = 'dashboard' | 'documents';
+type View = 'dashboard' | 'documents' | 'vault';
 type ExampleDoc = {
   id: string;
   merchant: string;
@@ -95,6 +96,7 @@ export default function App() {
   const [toast, setToast] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [sessionUser, setSessionUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const reducedMotion = useReducedMotion();
@@ -122,6 +124,26 @@ export default function App() {
     return () => { controller.abort(); window.clearTimeout(stop); };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    fetch('/api/me', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15000) })
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
+        if (active && body?.user?.id) {
+          setSessionUser(body.user);
+          setView('vault');
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const handleAuthChange = (user: { id: string; name: string; email: string } | null) => {
+    setSessionUser(user);
+    setShowAuth(false);
+    setView(user ? 'vault' : 'dashboard');
+  };
+
   const displayed = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase();
     const numbers = normalized.replace(/[^0-9]/g, '');
@@ -137,7 +159,7 @@ export default function App() {
   const money = (value: number) => new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', { style: 'currency', currency: 'BRL' }).format(value / 100);
   const date = (value: string) => new Intl.DateTimeFormat(language === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + 'T12:00:00Z'));
   const chooseView = (next: View) => { setView(next); setMobileMenu(false); setSelectedId(null); };
-  const focusSearch = () => { chooseView('documents'); requestAnimationFrame(() => searchRef.current?.focus()); };
+  const focusSearch = () => { if (sessionUser) { chooseView('vault'); } else { chooseView('documents'); requestAnimationFrame(() => searchRef.current?.focus()); } };
   const nav = (key: View, label: string, Icon: typeof LayoutDashboard) => (
     <button key={key} onClick={() => chooseView(key)}
       className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${view === key ? 'bg-brand-soft text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
@@ -167,8 +189,9 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <a href="https://github.com/gabrielduclos/arqvo" target="_blank" rel="noreferrer" className="hidden items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-brand sm:inline-flex"><span>{t.openSource}</span><ArrowRight size={15} /></a>
                 {authStatus?.enabled && (
-                  <button onClick={() => setShowAuth(true)} className="inline-flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                    <LockKeyhole size={15} />{language === 'pt' ? 'Entrar' : 'Sign in'}
+                  <button onClick={() => sessionUser ? chooseView('vault') : setShowAuth(true)} className="inline-flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                    {sessionUser ? <FolderOpen size={15} /> : <LockKeyhole size={15}/>}
+                    {sessionUser ? (language === 'pt' ? 'Meus arquivos' : 'My files') : (language === 'pt' ? 'Entrar' : 'Sign in')}
                   </button>
                 )}
                 <button onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')} aria-label="Change language" className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand">
@@ -184,6 +207,8 @@ export default function App() {
               <nav className="space-y-2" aria-label="Main navigation">
                 {nav('dashboard', t.navHome, LayoutDashboard)}
                 {nav('documents', t.navDocs, FolderOpen)}
+                {sessionUser && nav('vault', language === 'pt' ? 'Meus arquivos' : 'My files', LockKeyhole)}
+                {sessionUser && <button onClick={() => setShowAuth(true)} className="mt-3 rounded-xl px-4 py-2 text-xs text-slate-500 hover:text-brand">{sessionUser.email}</button>}
               </nav>
               <div className="mt-10 rounded-2xl bg-indigo-50 p-4">
                 <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-white text-brand"><ShieldCheck size={19} /></div>
@@ -229,6 +254,10 @@ export default function App() {
                     ))}
                   </div>
                 </section>
+              )}
+
+              {view === 'vault' && sessionUser && (
+                <VaultPanel language={language} email={sessionUser.email} />
               )}
 
               {view === 'documents' && (
@@ -294,7 +323,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-          {showAuth && authStatus?.enabled && <AuthPanel language={language} status={authStatus} onClose={() => setShowAuth(false)} />}
+          {showAuth && authStatus?.enabled && <AuthPanel language={language} status={authStatus} onClose={() => setShowAuth(false)} onAuthChange={handleAuthChange} />}
         </motion.div>
       )}
     </AnimatePresence>

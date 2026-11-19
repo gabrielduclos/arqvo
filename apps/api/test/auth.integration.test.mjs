@@ -17,6 +17,8 @@ test('Better Auth verified-email signup, login, session and logout with local Po
     // Never execute against Neon/production. Integration CI runs local Postgres.
     const schema = await readFile(new URL('../../../docs/database/002_better_auth.sql', import.meta.url), 'utf8');
     await pool.query(schema);
+    const documentsSchema = await readFile(new URL('../../../docs/database/003_documents_live.sql', import.meta.url), 'utf8');
+    await pool.query(documentsSchema);
 
     let resolveMail;
     const mailbox = new Promise(resolve => { resolveMail = resolve; });
@@ -71,6 +73,74 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
       assert.equal(me.statusCode, 200, me.body);
       assert.equal(me.json().user.email, email);
+
+
+      // Real database integration: owner-scoped upload metadata and deletion.
+      const uid = me.json().user.id;
+      const safeKey = encodeURIComponent(uid) + '/' + crypto.randomUUID();
+      const inserted = await app.inject({
+        method: 'POST', url: '/api/documents',
+        headers: { ...headers, cookie },
+        payload: {
+          filename: 'receipt.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 120,
+          objectKey: safeKey
+        }
+      });
+      assert.equal(inserted.statusCode, 201, inserted.body);
+      const id = inserted.json().document.id;
+      assert.ok(id);
+      const unauthorizedDoc = await app.inject({ method: 'GET', url: '/api/documents/' + id });
+      assert.equal(unauthorizedDoc.statusCode, 401);
+
+      const forged = await app.inject({
+        method: 'POST', url: '/api/documents',
+        headers: { ...headers, cookie },
+        payload: {
+          filename: 'forged.pdf', mimeType: 'application/pdf',
+          sizeBytes: 120, objectKey: 'another-user/' + crypto.randomUUID()
+        }
+      });
+      assert.equal(forged.statusCode, 400);
+      const records = await app.inject({
+        method: 'GET', url: '/api/documents',
+        headers: { cookie }
+      });
+      assert.equal(records.statusCode, 200, records.body);
+      assert.ok(records.json().documents.some(d => d.id === id));
+      const analyzed = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/analysis',
+        headers: { ...headers, cookie },
+        payload: {
+          extractedText: 'Farmácia Central 20 de novembro total 85 reais',
+          merchant: 'Farmácia Central', documentDate: '2026-11-20',
+          amountCents: 8500
+        }
+      });
+      assert.equal(analyzed.statusCode, 200, analyzed.body);
+      assert.equal(Number(analyzed.json().document.amountCents), 8500);
+      const searched = await app.inject({
+        method: 'GET', url: '/api/documents?q=farmácia',
+        headers: { cookie }
+      });
+      assert.equal(searched.statusCode, 200);
+      assert.ok(searched.json().documents.some(d => d.id === id));
+      const quota = await app.inject({
+        method: 'POST', url: '/api/ai/consume',
+        headers: { ...headers, cookie }, payload: {}
+      });
+      assert.equal(quota.statusCode, 200, quota.body);
+      const deleted = await app.inject({
+        method: 'DELETE', url: '/api/documents/' + id,
+        headers: { ...headers, cookie }
+      });
+      assert.equal(deleted.statusCode, 200, deleted.body);
+      const removed = await app.inject({
+        method: 'GET', url: '/api/documents/' + id,
+        headers: { cookie }
+      });
+      assert.equal(removed.statusCode, 404);
 
       const signOut = await app.inject({ method: 'POST', url: '/api/auth/sign-out', headers: { ...headers, cookie }, payload: {} });
       assert.equal(signOut.statusCode, 200, signOut.body);

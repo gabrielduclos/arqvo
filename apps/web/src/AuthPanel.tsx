@@ -58,8 +58,9 @@ async function request(path: string, payload: object): Promise<Result> {
   return { ok: response.ok, body: typeof body === 'object' && body !== null ? body as Record<string, unknown> : {} };
 }
 
-export default function AuthPanel({ language, status, onClose }: {
-  language: Language; status: AuthStatus; onClose: () => void
+export default function AuthPanel({ language, status, onClose, onAuthChange }: {
+  language: Language; status: AuthStatus; onClose: () => void;
+  onAuthChange: (user: Profile | null) => void
 }) {
   const t = phrases[language];
   const token = new URLSearchParams(window.location.search).get('token');
@@ -120,8 +121,10 @@ export default function AuthPanel({ language, status, onClose }: {
         setError(t.invalid);
       } else if (mode === 'login') {
         const account = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.ok ? r.json() : null);
-        if (account?.user) setUser(account.user as Profile);
-        else setMessage(t.pending);
+        if (account?.user) {
+          setUser(account.user as Profile);
+          onAuthChange(account.user as Profile);
+        } else setMessage(t.pending);
       } else if (mode === 'forgot') {
         setMessage(t.sent);
       } else if (mode === 'register') {
@@ -144,6 +147,7 @@ export default function AuthPanel({ language, status, onClose }: {
       const result = await request('/api/auth/sign-out', {});
       if (result.ok) {
         setUser(null);
+        onAuthChange(null);
         changeMode('login');
       } else setError(t.invalid);
     } catch { setError(t.invalid); }
