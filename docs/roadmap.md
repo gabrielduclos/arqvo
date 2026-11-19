@@ -6,7 +6,7 @@ The unchecked items are planned, **not implemented**. / Itens desmarcados são p
 - [x] Public MIT repo / Repositório público MIT
 - [x] Independent Neon project / Projeto Neon independente
 - [x] Render API scaffold / Estrutura inicial API Render
-- [ ] Deploy separate Render service / Publicar serviço Render separado
+- [x] Deploy separate Render service / Publicar serviço Render separado
 - [ ] Provision private Cloudflare R2 bucket / Criar bucket privado R2
 
 ## Phase 1 / Fase 1 — Secure documents
