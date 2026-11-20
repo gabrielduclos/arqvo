@@ -218,6 +218,22 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       assert.equal(reviewed.json().document.category, 'alimentacao');
       assert.equal(reviewed.json().document.subcategory, 'Café e bebidas');
 
+      const invalidAmount = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/metadata',
+        headers: { ...headers, cookie },
+        payload: { merchant: 'POSTO EXEMPLO COMBUSTIVEL LTDA',
+          category: 'alimentacao', subcategory: 'Café e bebidas', amountCents: 15.98 }
+      });
+      assert.equal(invalidAmount.statusCode, 400, invalidAmount.body);
+
+      const correctedAmount = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/metadata',
+        headers: { ...headers, cookie },
+        payload: { merchant: 'POSTO EXEMPLO COMBUSTIVEL LTDA',
+          category: 'alimentacao', subcategory: 'Café e bebidas', amountCents: 16480 }
+      });
+      assert.equal(correctedAmount.statusCode, 200, correctedAmount.body);
+      assert.equal(Number(correctedAmount.json().document.amountCents), 16480);
       const analyzedAgain = await app.inject({
         method: 'PATCH', url: '/api/documents/' + id + '/analysis',
         headers: { ...headers, cookie },
