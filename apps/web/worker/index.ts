@@ -18,12 +18,13 @@ interface Inference {
   toMarkdown(input: { name: string; blob: Blob }, options?: object): Promise<unknown>;
   run(model: string, options: object): Promise<unknown>;
 }
-type JobState = 'queued' | 'processing' | 'done' | 'failed';
+type JobState = 'queued' | 'processing' | 'done' | 'failed' | 'canceled';
 interface BackgroundJob {
   documentId: string;
   ownerId: string;
   objectKey: string;
   ocrObjectKey?: string;
+  uploadId?: string;
   filename: string;
   mimeType: string;
   token: string;
@@ -160,6 +161,39 @@ async function boundedBuffer(request: Request): Promise<ArrayBuffer | null> {
 function ocrPreviewKey(ownerId: string, id: string): string {
   return '_arqvo_ocr/' + encodeURIComponent(ownerId) + '/' + id;
 }
+function cancellationKey(ownerId: string, id: string): string {
+  return '_arqvo_canceled_jobs/' + encodeURIComponent(ownerId) + '/' + id;
+}
+function uploadCancellationKey(ownerId: string, uploadId: string): string {
+  return '_arqvo_canceled_uploads/' + encodeURIComponent(ownerId) + '/' + uploadId;
+}
+async function isJobCanceled(env: Env, job: BackgroundJob): Promise<boolean> {
+  if (await env.DOCS_BUCKET.get(cancellationKey(job.ownerId, job.documentId))) return true;
+  return Boolean(job.uploadId && UUID.test(job.uploadId) &&
+    await env.DOCS_BUCKET.get(uploadCancellationKey(job.ownerId, job.uploadId)));
+}
+async function markUploadCanceled(request: Request, env: Env, uploadId: string): Promise<Response> {
+  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  await env.DOCS_BUCKET.put(uploadCancellationKey(user.id, uploadId), '1');
+  return json({ canceled: true }, 202);
+}
+async function markDocumentCanceled(request: Request, env: Env, id: string): Promise<Response> {
+  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  const doc = await getOwnerDocument(request, env, id);
+  if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/'))
+    return fail(404, 'document_not_found');
+  const current = await readJobState(env, user.id, id);
+  if (current?.status === 'done') return fail(409, 'already_complete');
+  await env.DOCS_BUCKET.put(cancellationKey(user.id, id), '1');
+  const result = await handleDelete(request, env, id);
+  if (result.ok) return json({ canceled: true }, 200);
+  return result;
+}
+
 function jobStateKey(ownerId: string, id: string): string {
   return '_arqvo_jobs/' + encodeURIComponent(ownerId) + '/' + id + '.json';
 }
@@ -239,6 +273,10 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
   if (!filename || filename.length > 255 || /[\\/\u0000-\u001f\u007f]/.test(filename)) {
     return fail(400, 'invalid_filename');
   }
+  const uploadId = request.headers.get('x-upload-id') || '';
+  if (uploadId && !UUID.test(uploadId)) return fail(400, 'invalid_upload_id');
+  if (uploadId && await env.DOCS_BUCKET.get(uploadCancellationKey(user.id, uploadId)))
+    return fail(409, 'upload_canceled');
   const contentType = request.headers.get('content-type') || '';
   let raw: ArrayBuffer | null = null;
   let preview: ArrayBuffer | null = null;
@@ -286,6 +324,13 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     const body = await jsonBody(response);
     const doc = body.document as DocumentData | undefined;
     const token = body.jobToken;
+    // Cancel may arrive while metadata is being created. Undo the saved
+    // original before a job is submitted, so cancel really discards upload.
+    if (uploadId && await env.DOCS_BUCKET.get(uploadCancellationKey(user.id, uploadId))) {
+      if (doc?.id) await fromBackend(request, env, '/api/documents/' + doc.id, 'DELETE').catch(() => {});
+      await env.DOCS_BUCKET.delete(objectKey).catch(() => {});
+      return fail(409, 'upload_canceled');
+    }
     if (!doc || !UUID.test(doc.id) || typeof token !== 'string' ||
         !/^[a-f0-9]{64}$/i.test(token)) {
       // Registration was successful, but the API deployment may not yet
@@ -303,7 +348,7 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     }
     const job: BackgroundJob = {
       documentId: doc.id, ownerId: user.id, objectKey, ocrObjectKey,
-      filename, mimeType: actualMime, token
+      uploadId: uploadId || undefined, filename, mimeType: actualMime, token
     };
     try {
       await enqueueJob(env, job);
@@ -704,8 +749,9 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
       !job.objectKey.startsWith(encodeURIComponent(job.ownerId) + '/') ||
       !MIME.has(job.mimeType)) throw new Error('invalid_job');
   const state = await readJobState(env, job.ownerId, job.documentId);
-  if (state?.status === 'done') return;
+  if (state?.status === 'done' || state?.status === 'canceled' || await isJobCanceled(env, job)) return;
   await setJobState(env, job, 'processing', attempts);
+  if (await isJobCanceled(env, job)) return;
   const original = await env.DOCS_BUCKET.get(job.objectKey);
   if (!original) throw new Error('file_not_found');
   const cropKey = job.ocrObjectKey?.startsWith('_arqvo_ocr/' + encodeURIComponent(job.ownerId) + '/')
@@ -718,6 +764,7 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
   let fields: Record<string, any> | null = null;
   try { fields = await inferFields(env, extracted.text); }
   catch { /* Deterministic extraction still preserves useful OCR fields. */ }
+  if (await isJobCanceled(env, job)) return;
   const fakeRequest = new Request('https://arqvo.invalid/api/queue');
   const response = await persistDocumentAnalysis(fakeRequest, env, job.documentId,
     extracted.text, fields, extracted.method, true, null, job.token);
@@ -726,7 +773,7 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
     if (response.status === 403) throw new Error('job_not_authorized');
     throw new Error('analysis_save_failed_' + response.status);
   }
-  await setJobState(env, job, 'done', attempts);
+  if (!await isJobCanceled(env, job)) await setJobState(env, job, 'done', attempts);
 }
 
 
@@ -740,6 +787,10 @@ export default {
       if (path.startsWith('/api/auth/') || path === '/api/me') {
         return proxy(request, env, path + url.search);
       }
+      const uploadCancel = path.match(/^\/api\/uploads\/([a-f0-9-]+)\/cancel$/i);
+      if (uploadCancel && UUID.test(uploadCancel[1]) && request.method === 'POST') {
+        return markUploadCanceled(request, env, uploadCancel[1]);
+      }
       if (path === '/api/document-jobs' && request.method === 'GET') {
         return handleJobStatusList(request, env);
       }
@@ -750,6 +801,8 @@ export default {
       }
       const file = docId(path, '/file');
       if (file && request.method === 'GET') return handleFile(request, env, file);
+      const cancelJob = docId(path, '/cancel');
+      if (cancelJob && request.method === 'POST') return markDocumentCanceled(request, env, cancelJob);
       const retryJob = docId(path, '/queue');
       if (retryJob && request.method === 'POST') return handleRetryJob(request, env, retryJob);
       const analyze = docId(path, '/analyze');
@@ -774,6 +827,10 @@ export default {
         await processBackgroundJob(env, job, msg.attempts);
         msg.ack();
       } catch (err) {
+        if (await isJobCanceled(env, job).catch(() => false)) {
+          msg.ack();
+          continue;
+        }
         const code = err instanceof Error ? err.message : 'processing_failed';
         const permanent = ['invalid_job', 'file_not_found', 'document_deleted', 'job_not_authorized'].includes(code);
         if (permanent || msg.attempts >= 4) {
