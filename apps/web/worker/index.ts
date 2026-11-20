@@ -90,7 +90,7 @@ async function fromBackend(
   return fetch(apiUrl(env, path), {
     method, headers, redirect: 'manual',
     ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}),
-    signal: AbortSignal.timeout(22000)
+    signal: AbortSignal.timeout(90000)
   });
 }
 
@@ -653,7 +653,7 @@ async function persistDocumentAnalysis(
         method: 'POST', headers: {
           Accept: 'application/json', 'Content-Type': 'application/json',
           'X-Arqvo-Job-Token': jobToken
-        }, body: JSON.stringify(payload), signal: AbortSignal.timeout(60000)
+        }, body: JSON.stringify(payload), signal: AbortSignal.timeout(90000)
       })
     : await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', payload);
   if (!result.ok) return json(await jsonBody(result), result.status);
