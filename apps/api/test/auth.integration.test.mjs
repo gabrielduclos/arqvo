@@ -248,6 +248,33 @@ test('Better Auth verified-email signup, login, session and logout with local Po
       assert.equal(analyzedAgain.json().document.merchant, 'POSTO EXEMPLO COMBUSTIVEL LTDA');
       assert.equal(analyzedAgain.json().document.category, 'alimentacao');
       assert.equal(analyzedAgain.json().document.subcategory, 'Café e bebidas');
+      assert.equal(Number(analyzedAgain.json().document.amountCents), 16480,
+        'Automatic reanalysis cannot replace a user-edited amount');
+      const correctedToZero = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/metadata',
+        headers: { ...headers, cookie },
+        payload: { merchant: 'POSTO EXEMPLO COMBUSTIVEL LTDA',
+          category: 'alimentacao', subcategory: 'Café e bebidas', amountCents: 0 }
+      });
+      assert.equal(correctedToZero.statusCode, 200, correctedToZero.body);
+      assert.equal(Number(correctedToZero.json().document.amountCents), 0);
+      const afterZeroAI = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/analysis',
+        headers: { ...headers, cookie },
+        payload: { extractedText: 'CAFÉ 99,00', merchant: 'INFERIDO',
+          documentDate: null, amountCents: 9900, category: null, subcategory: '' }
+      });
+      assert.equal(afterZeroAI.statusCode, 200, afterZeroAI.body);
+      assert.equal(Number(afterZeroAI.json().document.amountCents), 0);
+      const cleared = await app.inject({
+        method: 'PATCH', url: '/api/documents/' + id + '/metadata',
+        headers: { ...headers, cookie },
+        payload: { merchant: 'POSTO EXEMPLO COMBUSTIVEL LTDA',
+          category: 'alimentacao', subcategory: 'Café e bebidas', amountCents: null }
+      });
+      assert.equal(cleared.statusCode, 200, cleared.body);
+      assert.equal(cleared.json().document.amountCents, null);
+
       const retained = await filtered('category=alimentacao&merchant=POSTO');
       assert.equal(retained.statusCode, 200, retained.body);
       assert.ok(retained.json().documents.some(doc => doc.id === id));
