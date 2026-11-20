@@ -10,7 +10,7 @@ import {
   categoryCandidate, categoryEvidenceMatches, cleanMerchantLabel,
   isPlainMerchantName, merchantCandidate, modelMerchantName,
   normalized, receiptItemLines, evidencedInText
-} from './receiptExtraction';
+} from './receiptExtraction.ts';
 
 const CATEGORY_ALIASES: Record<string, string> = {
   alimentacao: 'alimentacao',
