@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Check, Crop, Hand, LoaderCircle, RotateCw, ScanLine, Search, Sparkles, X, ZoomIn, ZoomOut } from 'lucide-react';
-import { FULL_CROP, readScan, scanPreview, type ScanCrop } from './documentScanner';
+import { FULL_CROP, scanPreview, type ScanCrop, type ScanOptions } from './documentScanner';
 
 type Language = 'pt' | 'en';
 type Props = {
   file: File;
   language: Language;
   onClose: () => void;
-  onScanned: (text: string, confidence: number) => void;
+  onConfirm: (options: ScanOptions) => void;
 };
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type Mode = Handle | 'move' | 'new' | 'pan';
@@ -68,15 +68,13 @@ function resizeCrop(initial: ScanCrop, handle: Handle, dx: number, dy: number): 
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-export default function DocumentScannerModal({ file, language, onClose, onScanned }: Props) {
+export default function DocumentScannerModal({ file, language, onClose, onConfirm }: Props) {
   const t = labels[language];
   const [rotation, setRotation] = useState(0);
   const [enhance, setEnhance] = useState(true);
   const [crop, setCrop] = useState<ScanCrop>(FULL_CROP);
   const [suggestion, setSuggestion] = useState<ScanCrop | null>(null);
   const [preview, setPreview] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [percentage, setPercentage] = useState(0);
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Position>({ x: 0, y: 0 });
@@ -104,11 +102,11 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
 
   useEffect(() => {
     const keyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape' && !processing) onClose();
+      if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', keyDown);
     return () => window.removeEventListener('keydown', keyDown);
-  }, [onClose, processing]);
+  }, [onClose]);
 
   function point(clientX: number, clientY: number): Position {
     const rect = editorRef.current?.getBoundingClientRect();
@@ -126,7 +124,7 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
     return { x: clamp(next.x, -maxX, maxX), y: clamp(next.y, -maxY, maxY) };
   }
   function startDrag(event: PointerEvent<HTMLElement>, mode: Mode) {
-    if (processing || !preview || dragRef.current || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (!preview || dragRef.current || (event.pointerType === 'mouse' && event.button !== 0)) return;
     event.preventDefault();
     event.stopPropagation();
     const editor = editorRef.current;
@@ -216,26 +214,15 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
     setPan({ x: 0, y: 0 });
     if (next === 1) setPanMode(false);
   }
-  async function scan() {
-    if (processing) return;
-    setProcessing(true);
-    setError('');
-    setPercentage(0);
-    try {
-      const result = await readScan(file, { rotation, enhance, crop }, setPercentage);
-      onScanned(result.text, result.confidence);
-    } catch {
-      // The existing server-side fallback can read the original image.
-      onScanned('', 0);
-    } finally {
-      setProcessing(false);
-    }
+  function scan() {
+    // All expensive work happens in the visible queue, after this modal closes.
+    onConfirm({ rotation, enhance, crop });
   }
 
   const cropChanged = crop.x > .001 || crop.y > .001 ||
     crop.width < .999 || crop.height < .999;
   return <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/75 p-0 sm:items-center sm:p-5"
-    onMouseDown={event => { if (event.target === event.currentTarget && !processing) onClose(); }}>
+    onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-label={t.title}
       className="flex max-h-[98dvh] w-full max-w-[690px] flex-col overflow-hidden rounded-t-[26px] bg-white shadow-2xl sm:max-h-[95dvh] sm:rounded-[26px]">
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -245,7 +232,7 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">{t.help}</p>
         </div>
-        <button type="button" disabled={processing} onClick={onClose} aria-label={t.close}
+        <button type="button" onClick={onClose} aria-label={t.close}
           className="flex size-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 disabled:opacity-40"><X size={20}/></button>
       </div>
 
@@ -275,7 +262,7 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
                 <div className="absolute inset-x-0 top-2/3 border-t border-white/45"/>
               </div>
               {handles.map(handle => <button type="button" key={handle.key}
-                disabled={processing || panMode}
+                disabled={panMode}
                 aria-label={handle[language]}
                 title={handle[language]}
                 onPointerDown={event => startDrag(event, handle.key)}
@@ -301,23 +288,23 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
           {suggestion ? t.detected : t.notDetected}
         </p>}
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={!suggestion || processing} onClick={() => {
+          <button type="button" disabled={!suggestion} onClick={() => {
             if (suggestion) { setCrop(suggestion); changeZoom(1); }
           }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:border-indigo-300 disabled:opacity-40">
             <Search size={16}/>{t.detectAgain}
           </button>
-          <button type="button" disabled={!cropChanged || processing} onClick={() => setCrop(FULL_CROP)}
+          <button type="button" disabled={!cropChanged} onClick={() => setCrop(FULL_CROP)}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:border-indigo-300 disabled:opacity-40">
             <Crop size={16}/>{t.full}
           </button>
-          <button type="button" disabled={processing} onClick={() => {
+          <button type="button" onClick={() => {
             setRotation(value => (value + 90) % 360);
             setCrop(FULL_CROP);
             changeZoom(1);
           }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:border-indigo-300 disabled:opacity-40">
             <RotateCw size={16}/>{t.rotate}
           </button>
-          <button type="button" aria-pressed={enhance} disabled={processing} onClick={() => {
+          <button type="button" aria-pressed={enhance} onClick={() => {
             keepSelectionRef.current = true;
             setEnhance(value => !value);
           }} className={'inline-flex min-h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold disabled:opacity-40 ' +
@@ -328,11 +315,11 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5">
           <ZoomOut size={17} className="shrink-0 text-slate-500"/>
           <input type="range" aria-label={t.zoom} min={1} max={3} step={.1} value={zoom}
-            disabled={processing} onChange={event => changeZoom(Number(event.target.value))}
+            onChange={event => changeZoom(Number(event.target.value))}
             className="min-w-0 flex-1 accent-indigo-600"/>
           <ZoomIn size={17} className="shrink-0 text-slate-500"/>
           <span className="w-12 text-right text-xs font-semibold tabular-nums text-slate-600">{Math.round(zoom * 100)}%</span>
-          <button type="button" disabled={zoom === 1 || processing} aria-pressed={panMode}
+          <button type="button" disabled={zoom === 1} aria-pressed={panMode}
             onClick={() => setPanMode(value => !value)}
             aria-label={t.move} title={t.move}
             className={'flex size-9 shrink-0 items-center justify-center rounded-lg disabled:opacity-40 ' +
@@ -340,20 +327,13 @@ export default function DocumentScannerModal({ file, language, onClose, onScanne
             <Hand size={18}/>
           </button>
         </div>
-        {processing && <div role="status" className="text-sm text-brand">
-          <div className="mb-1 flex justify-between"><span>{t.reading}</span><span>{percentage}%</span></div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-indigo-100">
-            <div className="h-full bg-brand transition-all" style={{ width: percentage + '%' }}/>
-          </div>
-        </div>}
         {error && <p role="alert" className="text-xs text-amber-700">{error}</p>}
         <div className="grid grid-cols-[1fr_2fr] gap-3">
-          <button type="button" disabled={processing} onClick={onClose}
+          <button type="button" onClick={onClose}
             className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40">{t.cancel}</button>
-          <button type="button" disabled={processing || !preview} onClick={() => void scan()}
+          <button type="button" disabled={!preview} onClick={scan}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white disabled:opacity-40">
-            {processing ? <LoaderCircle size={18} className="animate-spin"/> : <ScanLine size={18}/>}
-            {processing ? t.reading : t.save}
+            <ScanLine size={18}/>{t.save}
           </button>
         </div>
       </div>
