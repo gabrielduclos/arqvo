@@ -34,6 +34,8 @@ export function useDocumentUploadQueue(
   const [notice, setNotice] = useState('');
   const live = useRef<QueueEntry[]>([]);
   const running = useRef(false);
+  const controllers = useRef(new Map<string, AbortController>());
+  const cancelRequested = useRef(new Set<string>());
   const hidden = useRef(new Set<string>());
   const onUploadedRef = useRef(onDocumentUploaded);
   const errorRef = useRef(translateError);
@@ -76,6 +78,8 @@ export function useDocumentUploadQueue(
             job.status === 'done' ? 'done' :
             job.status === 'failed' ? 'failed' : 'analyzing';
           const index = next.findIndex(entry => entry.documentId === job.id);
+          if (index >= 0 && cancelRequested.current.has(next[index].id)) continue;
+          if (index >= 0 && next[index].status === 'canceled') continue;
           if (index >= 0) {
             const entry = next[index];
             if (entry.status === 'done' && status === 'done') continue;
@@ -116,7 +120,10 @@ export function useDocumentUploadQueue(
         const next = live.current.find(entry => entry.status === 'queued' && !entry.documentId);
         if (!next) break;
         const { id, file } = next;
+        const controller = new AbortController();
+        controllers.current.set(id, controller);
         try {
+          if (cancelRequested.current.has(id)) continue;
           // The browser only transfers the file. Cloudflare Queues performs
           // OCR, field extraction and persistence after upload, even offline.
           patch(id, { status: 'uploading', progress: 0 });
@@ -144,12 +151,22 @@ export function useDocumentUploadQueue(
           } else {
             headers['Content-Type'] = file.type;
           }
+          if (cancelRequested.current.has(id)) continue;
           const response = await fetch('/api/documents', {
             method: 'POST', credentials: 'same-origin',
-            headers, body: uploadBody, signal: AbortSignal.timeout(120000)
+            headers: { ...headers, 'X-Upload-Id': id },
+            body: uploadBody, signal: controller.signal
           });
           const body = await responseBody(response);
           if (!response.ok || !body.document?.id) throw new Error(errorRef.current(body.error));
+          if (cancelRequested.current.has(id)) {
+            // The response may arrive at exactly the same moment as Cancel.
+            // The server's cancellation marker prevents queue consumption.
+            await fetch('/api/documents/' + body.document.id + '/cancel', {
+              method: 'POST', credentials: 'same-origin'
+            }).catch(() => {});
+            continue;
+          }
           patch(id, {
             documentId: body.document.id,
             status: body.queued ? 'analyzing' : 'failed',
@@ -160,7 +177,11 @@ export function useDocumentUploadQueue(
           onUploadedRef.current();
           void pollJobs();
         } catch (cause) {
-          patch(id, { status: 'failed', error: cause instanceof Error ? cause.message : errorRef.current() });
+          if (!cancelRequested.current.has(id)) {
+            patch(id, { status: 'failed', error: cause instanceof Error ? cause.message : errorRef.current() });
+          }
+        } finally {
+          controllers.current.delete(id);
         }
       }
     } finally {
@@ -196,9 +217,47 @@ export function useDocumentUploadQueue(
     return { accepted: added.length, duplicates, invalid };
   }
 
-  function cancel(id: string) {
+  async function cancel(id: string) {
     const entry = live.current.find(item => item.id === id);
-    if (entry?.status === 'queued' && !entry.documentId) patch(id, { status: 'canceled' });
+    if (!entry || !['queued', 'uploading', 'analyzing'].includes(entry.status)) return;
+    if (cancelRequested.current.has(id)) return;
+    cancelRequested.current.add(id);
+    const previousStatus = entry.status;
+    patch(id, { status: 'canceled', error: undefined });
+    if (entry.documentId) hidden.current.add(entry.documentId);
+    controllers.current.get(id)?.abort();
+    if (previousStatus === 'queued' && !entry.documentId) return;
+    try {
+      if (entry.documentId) {
+        const response = await fetch('/api/documents/' + entry.documentId + '/cancel', {
+          method: 'POST', credentials: 'same-origin'
+        });
+        if (response.status === 409) {
+          // A completed job cannot be canceled. Reconcile it from the server.
+          cancelRequested.current.delete(id);
+          hidden.current.delete(entry.documentId);
+          patch(id, { status: 'done', progress: 100 });
+          return;
+        }
+        if (!response.ok) throw new Error('cancel_failed');
+      } else {
+        // A file upload may still be committing on the edge despite Abort.
+        // Persist the cancellation before the server enqueues any processing.
+        const response = await fetch('/api/uploads/' + id + '/cancel', {
+          method: 'POST', credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error('cancel_failed');
+      }
+      onUploadedRef.current();
+    } catch {
+      cancelRequested.current.delete(id);
+      if (entry.documentId) hidden.current.delete(entry.documentId);
+      patch(id, {
+        status: 'failed',
+        error: language === 'pt' ? 'Não foi possível cancelar. Tente novamente.' :
+          'Could not cancel. Please retry.'
+      });
+    }
   }
   async function retry(id: string) {
     const entry = live.current.find(item => item.id === id);
