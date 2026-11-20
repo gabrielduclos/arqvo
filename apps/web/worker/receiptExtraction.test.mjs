@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName, modelMerchantName, categoryEvidenceMatches, cleanMerchantLabel } from './receiptExtraction.ts';
+import { resolveReceiptMetadata, normalizeCategoryCode } from './receiptResolution.ts';
 
 const sample = [
   'PET ada',
@@ -241,4 +242,83 @@ test('merchant from prose and meal classification do not depend on company secto
   ].join('\n');
   assert.equal(merchantCandidate(excerpt)?.value, 'POSTO ESTRELA LTDA');
   assert.equal(categoryCandidate(excerpt)?.category, 'alimentacao');
+});
+
+
+test('global resolution accepts a semantic category supported by OCR items even without item_evidence', () => {
+  const ocr = [
+    'NOME FANTASIA: CASA DAS CORES LTDA',
+    'CNPJ: 12.345.678/0001-90',
+    'Descrição Qtd Valor',
+    'CABO HDMI 2.0 1 UN 29,90',
+    'VALOR TOTAL R$ 29,90'
+  ].join('\n');
+  const details = resolveReceiptMetadata(ocr, {
+    merchant: 'CASA DAS CORES LTDA',
+    category: 'Compras',
+    subcategory: 'Cabo HDMI',
+    item_evidence: ''
+  });
+  assert.equal(details.merchant, 'CASA DAS CORES LTDA');
+  assert.equal(details.category, 'compras');
+  assert.equal(details.subcategory, 'Cabo HDMI');
+});
+
+test('cloud response missing an evidence key still retains merchant and item-based category', () => {
+  const result = resolveReceiptMetadata(anschauNarrative, {
+    merchant: 'ANSCHAU E EMERENCIANO LTDA',
+    category: 'Alimentação',
+    subcategory: 'Refeições'
+  });
+  assert.equal(result.merchant, 'ANSCHAU E EMERENCIANO LTDA');
+  assert.equal(result.category, 'alimentacao');
+});
+
+test('independent field validation keeps OCR merchant even if the model returns no fields', () => {
+  const receipt = [
+    'Razão Social: PADARIA CENTRAL LTDA',
+    'CNPJ: 12.345.678/0001-90',
+    'Descrição Qtd Valor',
+    'CAFE EXPRESSO 1 UN 6,00',
+    'TOTAL R$ 6,00'
+  ].join('\n');
+  const result = resolveReceiptMetadata(receipt, null);
+  assert.equal(result.merchant, 'PADARIA CENTRAL LTDA');
+  assert.equal(result.category, 'alimentacao');
+});
+
+test('merchant industry alone cannot authorize the model category', () => {
+  const receipt = [
+    'AUTO POSTO ROTA SUL LTDA',
+    'CNPJ: 12.345.678/0001-90',
+    'VALOR TOTAL R$ 45,00'
+  ].join('\n');
+  const result = resolveReceiptMetadata(receipt, {
+    merchant: 'AUTO POSTO ROTA SUL LTDA',
+    category: 'combustivel',
+    subcategory: 'Gasolina',
+    item_evidence: ''
+  });
+  assert.equal(result.merchant, 'AUTO POSTO ROTA SUL LTDA');
+  assert.equal(result.category, null);
+});
+
+test('Portuguese and English category labels normalize to the stored code', () => {
+  assert.equal(normalizeCategoryCode('Categoria: Alimentação'), 'alimentacao');
+  assert.equal(normalizeCategoryCode('Alimentos e Bebidas'), 'alimentacao');
+  assert.equal(normalizeCategoryCode('Supermercado'), 'mercado');
+  assert.equal(normalizeCategoryCode('Unknown category'), null);
+});
+
+test('OCR issuer and cloud category are resolved independently', () => {
+  const receipt = [
+    'Nome Fantasia: ZETA LOJA LTDA',
+    'CNPJ: 12.345.678/0001-90',
+    'Descrição Qtd Valor',
+    'CHAVE CATRACA 1 UN 29,90',
+    'TOTAL R$ 29,90'
+  ].join('\n');
+  const result = resolveReceiptMetadata(receipt, { category: 'compras', subcategory: 'Chave catraca' });
+  assert.equal(result.merchant, 'ZETA LOJA LTDA');
+  assert.equal(result.category, 'compras');
 });
