@@ -42,6 +42,19 @@ function validJobToken(expected, provided) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(provided, 'hex'));
 }
 
+/** Amount metadata must be either null (clear), or integer cents; never a float. */
+export function validateEditableAmount(body) {
+  if (!Object.prototype.hasOwnProperty.call(body, 'amountCents')) {
+    return { present: false, valid: true, cents: null };
+  }
+  const value = body.amountCents;
+  return {
+    present: true,
+    valid: value === null || (Number.isSafeInteger(value) && value >= 0 && value <= 100000000000),
+    cents: value
+  };
+}
+
 export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSigningSecret }) {
   async function requireSession(request, reply) {
     reply.header('Cache-Control', 'no-store');
@@ -250,7 +263,11 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
                  OR NULLIF(btrim($4::text), '') IS NULL THEN merchant
                ELSE $4 END,
              document_date=COALESCE($5::date, document_date),
-             amount_cents=COALESCE($6::bigint, amount_cents),
+             amount_cents=CASE
+               WHEN amount_manual AND amount_cents IS NOT NULL THEN amount_cents
+               ELSE COALESCE($6::bigint, amount_cents)
+             END,
+             amount_manual=amount_manual AND amount_cents IS NOT NULL,
              category=CASE WHEN (category_manual AND category IS NOT NULL) OR $7::text IS NULL THEN category ELSE $7 END,
              subcategory=CASE WHEN (category_manual AND category IS NOT NULL) OR $7::text IS NULL THEN subcategory ELSE $8 END,
              merchant_manual=merchant_manual AND NULLIF(btrim(merchant), '') IS NOT NULL,
@@ -261,9 +278,11 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
                    OR NULLIF(btrim($4::text), '') IS NULL
                    THEN merchant ELSE $4 END), '') IS NOT NULL
                  AND (COALESCE($5::date, document_date) IS NOT NULL
-                   OR COALESCE($6::bigint, amount_cents) IS NOT NULL))
+                   OR (CASE WHEN amount_manual AND amount_cents IS NOT NULL
+                     THEN amount_cents ELSE COALESCE($6::bigint, amount_cents) END) IS NOT NULL))
                OR (COALESCE($5::date, document_date) IS NOT NULL
-                 AND COALESCE($6::bigint, amount_cents) IS NOT NULL)
+                 AND (CASE WHEN amount_manual AND amount_cents IS NOT NULL
+                   THEN amount_cents ELSE COALESCE($6::bigint, amount_cents) END) IS NOT NULL)
                THEN 'ready' ELSE status END,
              updated_at=now()
          WHERE owner_uid=$1 AND id=$2
@@ -365,7 +384,9 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
     if (!userId || !requireOrigin(request, reply)) return;
     if (!UUID_RE.test(request.params.id)) return sendError(reply, 400, 'invalid_document_id');
     const body = request.body || {};
-    if (typeof body.merchant !== 'string' || body.merchant.trim().length > 160 ||
+    const amount = validateEditableAmount(body);
+    if (!amount.valid ||
+        typeof body.merchant !== 'string' || body.merchant.trim().length > 160 ||
         typeof body.category !== 'string' ||
         (body.category !== '' && !DOCUMENT_CATEGORIES.has(body.category)) ||
         typeof body.subcategory !== 'string' || body.subcategory.trim().length > 80) {
@@ -379,12 +400,16 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
       const result = await pool.query(
         `UPDATE public.documents
          SET merchant=$3, category=$4, subcategory=$5,
+             amount_cents=CASE WHEN $6::boolean THEN $7::bigint ELSE amount_cents END,
              merchant_manual=(NULLIF(btrim($3::text), '') IS NOT NULL),
              category_manual=($4::text IS NOT NULL),
+             amount_manual=CASE WHEN $6::boolean THEN ($7::bigint IS NOT NULL) ELSE amount_manual END,
              status=CASE WHEN
                (nullif(btrim($3::text),'') IS NOT NULL AND
-                 (document_date IS NOT NULL OR amount_cents IS NOT NULL))
-               OR (document_date IS NOT NULL AND amount_cents IS NOT NULL)
+                 (document_date IS NOT NULL OR
+                  (CASE WHEN $6::boolean THEN $7::bigint ELSE amount_cents END) IS NOT NULL))
+               OR (document_date IS NOT NULL AND
+                   (CASE WHEN $6::boolean THEN $7::bigint ELSE amount_cents END) IS NOT NULL)
                THEN 'ready' ELSE 'uploaded' END,
              updated_at=now()
          WHERE owner_uid=$1 AND id=$2
@@ -392,7 +417,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
                    size_bytes AS "sizeBytes", status, merchant, category, subcategory,
                    document_date AS "documentDate", amount_cents AS "amountCents",
                    currency, created_at AS "createdAt"`,
-        [userId, request.params.id, merchant, category, subcategory]
+        [userId, request.params.id, merchant, category, subcategory, amount.present, amount.cents]
       );
       if (!result.rowCount) return sendError(reply, 404, 'document_not_found');
       return { document: result.rows[0] };
