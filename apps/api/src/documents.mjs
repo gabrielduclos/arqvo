@@ -231,7 +231,8 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
 
   async function saveAnalysis(userId, id, body) {
     const extractedText = typeof body.extractedText === 'string' ? body.extractedText.slice(0, 25000) : '';
-    const merchant = typeof body.merchant === 'string' && body.merchant.trim().length <= 160 ? body.merchant.trim() : null;
+    const merchant = typeof body.merchant === 'string' && body.merchant.trim().length <= 160
+      ? body.merchant.trim().replace(/^nome\s*[:：]\s*/i, '').trim() || null : null;
     const documentDate = typeof body.documentDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.documentDate)
       ? body.documentDate : null;
     const amountCents = Number.isSafeInteger(body.amountCents) && body.amountCents >= 0 && body.amountCents <= 100000000000
@@ -358,7 +359,7 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
         typeof body.subcategory !== 'string' || body.subcategory.trim().length > 80) {
       return sendError(reply, 400, 'invalid_metadata');
     }
-    const merchant = body.merchant.trim() || null;
+    const merchant = body.merchant.trim().replace(/^nome\s*[:：]\s*/i, '').trim() || null;
     const category = body.category || null;
     const subcategory = category ? body.subcategory.trim() || null : null;
     try {
