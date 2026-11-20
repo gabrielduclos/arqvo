@@ -209,11 +209,14 @@ export function receiptItemLines(text: string): { lines: string[]; explicit: boo
   // Header must be a column heading or an explicit introduction to items.
   const start = lines.findIndex(line => {
     const flat = normalized(line);
-    return /(?:lista de itens? (?:consumidos?|comprados?|adquiridos?)|itens? (?:consumidos?|comprados?|adquiridos?|da compra) (?:detalha|inclui)?|detalhamento (?:dos? )?(?:itens?|produtos?))/.test(flat) ||
-      (itemHeader.test(line) && (
-        /(?:^|\s)(?:qtd|qtde|quantidade|vl|valor|unit|unidade|codigo|cod|preco|total)(?:\s|$|\.)/.test(flat) ||
-        /^(?:descri[cç][aã]o|descricao|produto|item|c[oó]digo|codigo)\s*:?\s*$/.test(line)
-      ));
+    const listIntro = /^(?:a\s+)?(?:lista\s+de\s+)?(?:itens?|produtos?)\s+(?:consumidos?|comprados?|adquiridos?)(?:\s+(?:detalha|inclui|são|sao))?\s*:?\s*$/.test(flat)
+      || /^(?:detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?))\s*:?\s*$/.test(flat);
+    // A table begins with "Código Descrição Qtd" or "Descrição Valor",
+    // never with a phrase such as "A descrição reconhece água no valor de...".
+    const tableHeading = /^(?:cod(?:igo)?\s+)?(?:descricao|produto|item)\s+(?:qtd|qtde|quantidade|vl|valor|unidade|preco|unit|total)\b/.test(flat)
+      || /^(?:cod(?:igo)?\s+descricao|descricao\s+cod(?:igo)?)\b/.test(flat)
+      || /^(?:descricao|produto|item|codigo)\s*$/.test(flat);
+    return listIntro || tableHeading;
   });
   if (start >= 0) {
     const result: string[] = [];
@@ -244,12 +247,15 @@ export function receiptItemLines(text: string): { lines: string[]; explicit: boo
   // individual price. Accept explicit purchase statements, not a business's
   // specialty, an address, or a utility bill ("conta de água").
   if (!candidates.length) {
-    const purchaseWords = /\b(?:comprou|comprados?|comprada|compradas|adquiriu|adquiridos?|consumiu|consumidos?|consumo\s+de|pedido\s+de|compra\s+de|itens?\s+(?:inclui|incluem|comprados?|consumidos?)|produtos?\s+(?:inclui|incluem)|foi\s+comprad[oa]|lan[cç]ado\s+como\s+item|item\s*[:\-])\b/i;
-    for (const line of lines) {
-      const flat = normalized(line);
-      if (!purchaseWords.test(flat) || !meaningfulItem(line) ||
+    const purchaseWords = /\b(?:comprou|comprados?|comprada|compradas|adquiriu|adquiridos?|consumiu|consumidos?|consumo\s+de|pedido\s+de|compra\s+de|itens?\s+(?:inclui|incluem|comprados?|consumidos?)|produtos?\s+(?:inclui|incluem)|foi\s+comprad[oa]|lan[cç]ado\s+como\s+item|item\s*(?:comprado|adquirido|consumido|[:\-]))\b/i;
+    const sentences = lines.flatMap(line => line.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý])/u));
+    for (const sentence of sentences) {
+      const flat = normalized(sentence);
+      if (!purchaseWords.test(flat) || !/[a-z]{3}/i.test(flat) ||
           /\b(?:conta|fatura|tarifa|cobranca|tratamento|saneamento|abastecimento de agua)\b/.test(flat)) continue;
-      candidates.push(line);
+      // Keep just the item statement. Other sentences can describe the store,
+      // a payment method or the receipt itself.
+      candidates.push(sentence);
     }
   }
   return { lines: candidates.slice(0, 30), explicit: false };
