@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ScanOptions } from './documentScanner';
+import { prepareScanImage, type ScanOptions } from './documentScanner';
 
 export type QueueStatus = 'queued' | 'uploading' | 'analyzing' | 'done' | 'failed' | 'canceled';
 export type QueueEntry = {
@@ -120,13 +120,33 @@ export function useDocumentUploadQueue(
           // The browser only transfers the file. Cloudflare Queues performs
           // OCR, field extraction and persistence after upload, even offline.
           patch(id, { status: 'uploading', progress: 0 });
+          // When a user adjusted a photo, upload a separate cropped OCR image
+          // together with the unchanged original. This makes the manual crop
+          // effective in the cloud without losing the original document.
+          let body: BodyInit = file;
+          const headers: Record<string, string> = {
+            'X-File-Name': encodeURIComponent(file.name)
+          };
+          if (next.scanOptions && file.type.startsWith('image/')) {
+            try {
+              const prepared = await prepareScanImage(file, next.scanOptions);
+              if (prepared.size > 0 && prepared.size < 6 * 1024 * 1024) {
+                const parts = new FormData();
+                parts.append('original', file, file.name);
+                parts.append('ocr', prepared, 'scan.jpg');
+                body = parts;
+              } else {
+                headers['Content-Type'] = file.type;
+              }
+            } catch {
+              headers['Content-Type'] = file.type;
+            }
+          } else {
+            headers['Content-Type'] = file.type;
+          }
           const response = await fetch('/api/documents', {
             method: 'POST', credentials: 'same-origin',
-            headers: {
-              'Content-Type': file.type,
-              'X-File-Name': encodeURIComponent(file.name)
-            },
-            body: file, signal: AbortSignal.timeout(120000)
+            headers, body, signal: AbortSignal.timeout(120000)
           });
           const body = await responseBody(response);
           if (!response.ok || !body.document?.id) throw new Error(errorRef.current(body.error));
