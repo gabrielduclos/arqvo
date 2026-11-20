@@ -21,6 +21,8 @@ test('Better Auth verified-email signup, login, session and logout with local Po
     await pool.query(documentsSchema);
     const categoriesSchema = await readFile(new URL('../../../docs/database/004_document_categories.sql', import.meta.url), 'utf8');
     await pool.query(categoriesSchema);
+    const amountSchema = await readFile(new URL('../../../docs/database/005_manual_amount.sql', import.meta.url), 'utf8');
+    await pool.query(amountSchema);
 
     let resolveMail;
     const mailbox = new Promise(resolve => { resolveMail = resolve; });
