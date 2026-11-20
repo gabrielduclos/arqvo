@@ -123,7 +123,7 @@ export function useDocumentUploadQueue(
           // When a user adjusted a photo, upload a separate cropped OCR image
           // together with the unchanged original. This makes the manual crop
           // effective in the cloud without losing the original document.
-          let body: BodyInit = file;
+          let uploadBody: BodyInit = file;
           const headers: Record<string, string> = {
             'X-File-Name': encodeURIComponent(file.name)
           };
@@ -134,7 +134,7 @@ export function useDocumentUploadQueue(
                 const parts = new FormData();
                 parts.append('original', file, file.name);
                 parts.append('ocr', prepared, 'scan.jpg');
-                body = parts;
+                uploadBody = parts;
               } else {
                 headers['Content-Type'] = file.type;
               }
@@ -146,7 +146,7 @@ export function useDocumentUploadQueue(
           }
           const response = await fetch('/api/documents', {
             method: 'POST', credentials: 'same-origin',
-            headers, body, signal: AbortSignal.timeout(120000)
+            headers, body: uploadBody, signal: AbortSignal.timeout(120000)
           });
           const body = await responseBody(response);
           if (!response.ok || !body.document?.id) throw new Error(errorRef.current(body.error));
