@@ -394,7 +394,8 @@ async function readDocumentText(
 // All extracted fields remain suggestions; manually corrected fields win in the API.
 async function persistDocumentAnalysis(
   request: Request, env: Env, id: string, extractedText: string,
-  fields: Record<string, any> | null, method: string, aiUsed: boolean
+  fields: Record<string, any> | null, method: string, aiUsed: boolean,
+  visionMerchant: string | null = null
 ): Promise<Response> {
   const merchantHint = merchantCandidate(extractedText);
   const itemHint = categoryCandidate(extractedText);
@@ -407,9 +408,13 @@ async function persistDocumentAnalysis(
     evidencedInText(modelMerchant, extractedText) &&
     (modelMerchantEvidence ? evidencedInText(modelMerchantEvidence, extractedText) : true) &&
     !/^(?:nota|cupom|documento|comprovante|pagamento|extrato|danfe|pagina|nfc|nfce|cliente|consumidor)/i.test(normalized(modelMerchant));
-  const merchant = merchantHint && merchantHint.confidence >= 80
-    ? merchantHint.value
-    : modelMerchantValid ? modelMerchant : '';
+  // Image-derived merchant is accepted only when the vision transcription
+  // contains a verified issuer near CNPJ or an explicit issuer label.
+  const merchant = visionMerchant || (
+    merchantHint && merchantHint.confidence >= 80
+      ? merchantHint.value
+      : modelMerchantValid ? modelMerchant : ''
+  );
   const modelCategory = typeof fields?.category === 'string' &&
     CATEGORY_CODES.has(fields.category.toLowerCase().trim()) ? fields.category.toLowerCase().trim() : null;
   const itemEvidence = typeof fields?.item_evidence === 'string' ? fields.item_evidence.trim() : '';
@@ -473,13 +478,30 @@ async function handleLocalScan(request: Request, env: Env, id: string): Promise<
   if (!doc || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/') ||
       !(doc.mimeType.startsWith('image/') || doc.mimeType === 'application/pdf')) return fail(404, 'document_not_found');
 
-  if (doc.mimeType.startsWith('image/') && payload.confidence < 65) {
+  // If Tesseract got the amount but missed the seller, reread the original
+  // photo once. Merchant fallback must come from issuer evidence in the photo,
+  // not from guessing what business a payment processor or POS vendor is.
+  const originalMerchant = merchantCandidate(text);
+  let visionMerchant: string | null = null;
+  let visionUsed = false;
+  if (doc.mimeType.startsWith('image/') &&
+      (payload.confidence < 65 || !originalMerchant || originalMerchant.confidence < 80)) {
     const object = await env.DOCS_BUCKET.get(doc.objectKey);
     if (object) {
       try {
         const vision = await readDocumentText(env, doc.filename, doc.mimeType, await object.arrayBuffer());
-        if (vision.text.length > 30) text = vision.text;
-      } catch { /* Preserve local OCR as fallback. */ }
+        visionUsed = true;
+        const photoMerchant = merchantCandidate(vision.text);
+        if (photoMerchant && photoMerchant.confidence >= 80 &&
+            (!originalMerchant || originalMerchant.confidence < 80)) {
+          visionMerchant = photoMerchant.value;
+        }
+        // Prefer the photo transcription only when local OCR was generally weak;
+        // otherwise keep its item rows, dates and amounts.
+        if (payload.confidence < 65 && vision.text.length > 30) {
+          text = vision.text;
+        }
+      } catch { /* Retain original OCR and manual editing. */ }
     }
   }
   const hints = readReceiptHints(text);
@@ -490,14 +512,15 @@ async function handleLocalScan(request: Request, env: Env, id: string): Promise<
   // for one lightweight structured inference call.
   let fields: Record<string, any> | null = null;
   let aiUsed = false;
-  if (!merchant || merchant.confidence < 80 || !hints.date ||
+  if ((!visionMerchant && (!merchant || merchant.confidence < 80)) || !hints.date ||
       hints.amountCents === null || !item || item.confidence < 85) {
     try {
       aiUsed = true;
       fields = await inferFields(env, text);
     } catch { /* Local text, validated hints and original document stay saved. */ }
   }
-  return persistDocumentAnalysis(request, env, id, text, fields, 'local-ocr-reviewed', aiUsed || text !== payload.text.trim());
+  return persistDocumentAnalysis(request, env, id, text, fields, 'local-ocr-reviewed',
+    aiUsed || visionUsed, visionMerchant);
 }
 
 async function handleAnalyze(request: Request, env: Env, id: string): Promise<Response> {
