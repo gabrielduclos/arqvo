@@ -9,6 +9,7 @@ import DocumentFilters, {
   type DocumentFilterValues, emptyDocumentFilters, buildDocumentQuery, countDocumentFilters
 } from './DocumentFilters';
 import { categoryLabel, categoryOptions } from './documentCategories';
+import { formatAmountInput, parseAmountInput } from './amountInput';
 import UploadSourceModal, { type UploadSource } from './UploadSourceModal';
 import DocumentScannerModal from './DocumentScannerModal';
 import UploadQueuePanel from './UploadQueuePanel';
@@ -65,7 +66,7 @@ const words = {
     saved: 'Arquivo salvo. Analisando o texto reconhecido…', localSaved: 'Digitalização local concluída. Confira os dados reconhecidos.', extracted: 'Dados identificados. Confira as informações no documento original.',
     note: 'Valores extraídos por IA são sugestões e devem ser conferidos.', noResults: 'Nenhum documento encontrado.',
     merchant: 'Estabelecimento', category: 'Categoria', subcategory: 'Subcategoria', amount: 'Valor', date: 'Data', format: 'Formato',
-    editMetadata: 'Corrigir dados', saveMetadata: 'Salvar alterações', cancelEdit: 'Cancelar', savedMetadata: 'Informações atualizadas. Suas correções serão mantidas mesmo após nova análise.', unknownCategory: 'Não classificado',
+    editMetadata: 'Corrigir dados', saveMetadata: 'Salvar alterações', cancelEdit: 'Cancelar', savedMetadata: 'Informações atualizadas. Suas correções serão mantidas mesmo após nova análise.', unknownCategory: 'Não classificado', invalidAmount: 'Informe um valor válido em reais. Ex.: 164,80.', amountHint: 'Use vírgula para os centavos. Deixe em branco se o valor for desconhecido.',
     source: 'Arquivo original', close: 'Fechar', selected: 'Detalhes do documento', ocrText: 'Texto reconhecido na nota fiscal', ocrEmpty: 'Nenhum texto legível; tente uma foto mais nítida.',
     noAI: 'A análise acontece após o upload; você pode tentar novamente se faltarem informações.',
     billing: 'A IA pode consumir recursos da Cloudflare; os resultados devem ser conferidos.',
@@ -93,7 +94,7 @@ const words = {
     saved: 'File saved. Processing recognized text…', localSaved: 'Local scan completed. Review the recognized details.', extracted: 'Details identified. Check the information against the original.',
     note: 'AI-extracted values are suggestions that must be checked.', noResults: 'No documents found.',
     merchant: 'Merchant', category: 'Category', subcategory: 'Subcategory', amount: 'Amount', date: 'Date', format: 'Format',
-    editMetadata: 'Correct details', saveMetadata: 'Save changes', cancelEdit: 'Cancel', savedMetadata: 'Details updated. Your corrections are retained after future AI analysis.', unknownCategory: 'Uncategorized',
+    editMetadata: 'Correct details', saveMetadata: 'Save changes', cancelEdit: 'Cancel', savedMetadata: 'Details updated. Your corrections are retained after future AI analysis.', unknownCategory: 'Uncategorized', invalidAmount: 'Enter a valid BRL amount, e.g. 164,80.', amountHint: 'Use a comma for cents. Leave blank if the amount is unknown.',
     source: 'Original file', close: 'Close', selected: 'Document details', ocrText: 'Recognized invoice text', ocrEmpty: 'No readable text; try a sharper photo.',
     noAI: 'Analysis starts after upload. Retry if details are missing.',
     billing: 'AI processing uses Cloudflare resources; always verify extracted values.',
@@ -133,7 +134,8 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   const [selected, setSelected] = useState<Document | null>(null);
   const [editingMetadata, setEditingMetadata] = useState(false);
   const [savingMetadata, setSavingMetadata] = useState(false);
-  const [metadataDraft, setMetadataDraft] = useState({ merchant: '', category: '', subcategory: '' });
+  const [metadataDraft, setMetadataDraft] = useState({ merchant: '', category: '', subcategory: '', amount: '' });
+  const [invalidAmount, setInvalidAmount] = useState(false);
   const [detailText, setDetailText] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -214,23 +216,31 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
 
   useEffect(() => {
     setEditingMetadata(false);
+    setInvalidAmount(false);
     setMetadataDraft({
       merchant: cleanMerchant(selected?.merchant),
       category: selected?.category || '',
-      subcategory: selected?.subcategory || ''
+      subcategory: selected?.subcategory || '',
+      amount: formatAmountInput(selected?.amountCents)
     });
-  }, [selected?.id, selected?.merchant, selected?.category, selected?.subcategory]);
+  }, [selected?.id, selected?.merchant, selected?.category, selected?.subcategory, selected?.amountCents]);
 
   async function saveMetadata(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected || savingMetadata) return;
+    const amountCents = parseAmountInput(metadataDraft.amount);
+    if (amountCents === undefined) {
+      setInvalidAmount(true);
+      return;
+    }
+    setInvalidAmount(false);
     setSavingMetadata(true);
     setError('');
     try {
       const response = await fetch('/api/documents/' + selected.id + '/metadata', {
         method: 'PATCH', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(metadataDraft),
+        body: JSON.stringify({ ...metadataDraft, amountCents }),
         signal: AbortSignal.timeout(45000)
       });
       const body = await parse(response);
@@ -550,6 +560,22 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
               className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base outline-none focus:border-brand disabled:opacity-50"
               value={metadataDraft.subcategory}
               onChange={e => setMetadataDraft(d => ({...d, subcategory:e.target.value}))}/>
+            <label className="block text-xs font-semibold text-slate-600" htmlFor="arqvo-edit-amount">{t.amount} (R$)</label>
+            <div className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-white focus-within:border-brand">
+              <span className="pl-3 text-base font-medium text-slate-500">R$</span>
+              <input id="arqvo-edit-amount" type="text" inputMode="decimal" autoComplete="off"
+                aria-invalid={invalidAmount} aria-describedby="arqvo-amount-hint"
+                placeholder="0,00" maxLength={22}
+                className="min-h-12 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-base outline-none"
+                value={metadataDraft.amount}
+                onChange={e => {
+                  setInvalidAmount(false);
+                  setMetadataDraft(d => ({ ...d, amount: e.target.value }));
+                }}/>
+            </div>
+            <p id="arqvo-amount-hint" className={'text-xs ' + (invalidAmount ? 'font-semibold text-red-600' : 'text-slate-500')}>
+              {invalidAmount ? t.invalidAmount : t.amountHint}
+            </p>
             <button type="submit" disabled={savingMetadata}
               className="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
               {savingMetadata ? t.processing : t.saveMetadata}
