@@ -104,6 +104,9 @@ const words = {
     betaWarning: 'Beta version. Avoid highly sensitive documents until the security review.'
   }
 };
+const cleanMerchant = (name: string | null | undefined): string =>
+  (name || '').replace(/^\s*nome\s*[:：]\s*/i, '').trim();
+
 const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 
@@ -211,7 +214,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
   useEffect(() => {
     setEditingMetadata(false);
     setMetadataDraft({
-      merchant: selected?.merchant || '',
+      merchant: cleanMerchant(selected?.merchant),
       category: selected?.category || '',
       subcategory: selected?.subcategory || ''
     });
@@ -413,7 +416,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
                     </span>
                     <button onClick={() => setSelected(doc)} className="min-w-0 flex-1 py-0.5 text-left">
                       <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand">{doc.filename}</span>
-                      <span className="mt-1 block truncate text-xs text-slate-500">{doc.merchant || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
+                      <span className="mt-1 block truncate text-xs text-slate-500">{cleanMerchant(doc.merchant) || date(doc.createdAt)} · {size(doc.sizeBytes)}</span>
                       {doc.category && <span className="mt-1 block truncate text-[11px] font-semibold text-brand">
                         {categoryLabel(doc.category, language)}
                         {doc.subcategory ? ' · ' + doc.subcategory : ''}
@@ -512,7 +515,7 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
           </div>
           <h2 className="mt-5 break-words text-lg font-semibold">{selected.filename}</h2>
           <div className="mt-5 grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 text-sm">
-            <div><p className="text-xs text-slate-500">{t.merchant}</p><p className="mt-1 font-semibold">{selected.merchant || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">{t.merchant}</p><p className="mt-1 font-semibold">{cleanMerchant(selected.merchant) || '—'}</p></div>
             <div><p className="text-xs text-slate-500">{t.amount}</p><p className="mt-1 font-semibold">{money(selected.amountCents)}</p></div>
             <div className="min-w-0"><p className="text-xs text-slate-500">{t.date}</p><p className="mt-1 font-semibold">{date(selected.documentDate)}</p></div>
             <div className="min-w-0"><p className="text-xs text-slate-500">{t.category}</p>
