@@ -642,7 +642,9 @@ async function persistDocumentAnalysis(
 ): Promise<Response> {
   let { merchant, category, subcategory } =
     resolveReceiptMetadata(extractedText, fields, visionMerchant);
+  let categoryRetryAttempted = false;
   if (!category && extractedText.trim().length >= 12) {
+    categoryRetryAttempted = true;
     // Second pass is invoked only when the general extraction found no valid
     // category. This improves coverage for OCR descriptions and unfamiliar
     // product names while keeping the category grounded in actual item text.
@@ -683,6 +685,17 @@ async function persistDocumentAnalysis(
     : await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', payload);
   if (!result.ok) return json(await jsonBody(result), result.status);
   const updated = await jsonBody(result);
+  // Log only extraction state, never OCR text, business names, file names or
+  // user identifiers. These diagnostics distinguish model vs persistence issues.
+  if (!category) {
+    console.warn('arqvo_category_unresolved', {
+      method, categoryRetryAttempted,
+      initialModelReturnedCategory: Boolean(fields?.category || fields?.categoria),
+      hasItemRows: receiptItemLines(extractedText).lines.length > 0
+    });
+  } else if (updated?.document && !updated.document.category) {
+    console.warn('arqvo_category_not_saved', { method, categoryResolved: true });
+  }
   return json({
     ...updated,
     textLength: extractedText.length,
