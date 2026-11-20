@@ -15,6 +15,7 @@ const nonIssuer = /\b(?:https?:|www\.|@|cpf|cnpj|qr\s*code|chave\s*de\s*acesso|a
 const address = /^(?:r(?:ua)?\.?\s|av(?:enida)?\.?\s|rod(?:ovia)?\.?\s|estrada\b|logradouro\b|pra[cç]a\b|travessa\b|bairro\b|cep\b|n[º°o]\s*\d)/i;
 const price = /(?:R\$\s*|(?:^|\s))\d{1,6}[,.]\d{2}(?:\s|$)/;
 const cnpjPattern = /\b(?:cnpj|c\s*n\s*p\s*j)\s*[:.#-]?\s*(?:\d{2}[.\s]?\d{3}[.\s]?\d{3}[/\s]?\d{4}[-\s]?\d{2})/i;
+const corporateSuffix = /^(?:LTDA\.?|LIMITADA|ME|EPP|EIRELI|S\.?A\.?|S\/A)\s*[,.]?$/i;
 
 function issuerValue(value: string): string {
   return value.replace(/^(?:[-–—:]\s*)+/, '')
@@ -25,6 +26,8 @@ function looksIssuer(value: string): boolean {
   const clean = issuerValue(value);
   const flat = normalized(clean);
   if (flat.length < 4 || flat.length > 130 || !/[a-z]{3}/i.test(flat)) return false;
+  // Legal suffixes and one-word OCR artifacts are not the issuer name.
+  if (corporateSuffix.test(clean) || flat.split(' ').length === 1 && /^(?:ltda|eireli|limitada|microempresa|fantasia)$/.test(flat)) return false;
   if (docHeading.test(flat) || nonIssuer.test(flat) || address.test(flat)) return false;
   if (/^\d/.test(flat) || (clean.match(/\d/g) || []).length > 7) return false;
   if (price.test(clean) || /[0-9]{2}[:/.-][0-9]{2}/.test(clean)) return false;
@@ -43,16 +46,42 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
     if (looksIssuer(candidate)) return { value: candidate, source: 'label', confidence: 98 };
   }
 
-  // In standard NFC-e printouts the issuer sits directly above its CNPJ.
-  const cnpjIndex = lines.findIndex((line, index) => index < 35 && cnpjPattern.test(line));
-  if (cnpjIndex >= 0) {
-    const sameLine = lines[cnpjIndex].replace(cnpjPattern, '').replace(/^\s*[-:]/, '').trim();
-    if (looksIssuer(sameLine)) return { value: issuerValue(sameLine), source: 'cnpj', confidence: 88 };
-    for (const offset of [-1, -2, -3, 1]) {
-      const candidate = lines[cnpjIndex + offset];
-      if (candidate && looksIssuer(candidate)) {
-        return { value: issuerValue(candidate), source: 'cnpj', confidence: 82 };
+  // NFC-e often places the issuer beside its CNPJ, sometimes with an OCR
+  // artifact such as "5", and continues "LTDA" onto the next line.
+  // Look at every early CNPJ rather than accepting a standalone "LTDA".
+  for (let i = 0; i < Math.min(35, lines.length); i++) {
+    const match = lines[i].match(cnpjPattern);
+    if (!match) continue;
+    const suffix = lines[i].slice((match.index ?? 0) + match[0].length)
+      .replace(/^[\s:;,.\-–]+/, '')
+      .replace(/^\d{1,2}\s+(?=[a-zA-ZÀ-ÿ]{3})/, '').trim();
+    if (looksIssuer(suffix)) {
+      let complete = issuerValue(suffix);
+      const continuation = lines[i + 1];
+      if (continuation && corporateSuffix.test(continuation) &&
+          !new RegExp('\\b' + normalized(continuation) + '\\b', 'i').test(normalized(complete))) {
+        complete += ' ' + continuation.trim().replace(/[,.]+$/, '');
       }
+      return { value: complete.slice(0, 160), source: 'cnpj', confidence: 94 };
+    }
+    // Header above CNPJ is the second-most reliable position. Reject footer
+    // vendors or payment processors by inspecting only very nearby lines.
+    for (const offset of [-1, -2, -3]) {
+      const line = lines[i + offset];
+      if (line && looksIssuer(line)) {
+        const part = lines[i + offset + 1];
+        const name = issuerValue(line) + (part && corporateSuffix.test(part) ? ' ' + part : '');
+        return { value: name.slice(0, 160), source: 'cnpj', confidence: 86 };
+      }
+    }
+    // The issuer may appear below a CNPJ-only line.
+    const below = lines[i + 1];
+    if (below && looksIssuer(below)) {
+      const next = lines[i + 2];
+      return {
+        value: (issuerValue(below) + (next && corporateSuffix.test(next) ? ' ' + next : '')).slice(0, 160),
+        source: 'cnpj', confidence: 82
+      };
     }
   }
 
