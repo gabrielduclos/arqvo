@@ -6,18 +6,18 @@ const copy = {
   pt: {
     heading: 'Fila de processamento', done: 'Concluídos', allDone: 'Todos os arquivos foram processados',
     clear: 'Limpar concluídos', cancel: 'Cancelar arquivo', retry: 'Tentar novamente',
-    queued: 'Aguardando', scanning: 'Reconhecendo texto (OCR)', uploading: 'Enviando arquivo',
-    analyzing: 'Identificando informações', complete: 'Salvo e analisado',
+    queued: 'Aguardando envio', uploading: 'Enviando arquivo',
+    analyzing: 'OCR e identificação no Cloudflare', complete: 'Salvo e analisado',
     failed: 'Falha', canceled: 'Cancelado',
-    note: 'A fila funciona enquanto o Arqvo permanecer aberto neste navegador.'
+    note: 'Depois que o arquivo for enviado, pode fechar o aplicativo: o Cloudflare continua o processamento.'
   },
   en: {
     heading: 'Processing queue', done: 'Completed', allDone: 'All files have been processed',
     clear: 'Clear completed', cancel: 'Cancel file', retry: 'Try again',
-    queued: 'Waiting', scanning: 'Recognizing text (OCR)', uploading: 'Uploading file',
-    analyzing: 'Identifying details', complete: 'Saved and processed',
+    queued: 'Waiting to upload', uploading: 'Uploading file',
+    analyzing: 'OCR and extraction on Cloudflare', complete: 'Saved and processed',
     failed: 'Failed', canceled: 'Canceled',
-    note: 'The queue runs while Arqvo stays open in this browser.'
+    note: 'Once the file is uploaded, you can close the app. Cloudflare keeps processing.'
   }
 };
 
@@ -27,9 +27,9 @@ export default function UploadQueuePanel({ queue, language }: { queue: DocumentQ
   const t = copy[language];
   const done = queue.items.filter(item => item.status === 'done').length;
   const settled = queue.items.filter(item => ['done', 'failed', 'canceled'].includes(item.status)).length;
-  const active = queue.items.some(item => ['scanning', 'uploading', 'analyzing'].includes(item.status));
+  const active = queue.items.some(item => ['uploading', 'analyzing'].includes(item.status));
   const status: Record<QueueStatus, string> = {
-    queued: t.queued, scanning: t.scanning, uploading: t.uploading,
+    queued: t.queued, uploading: t.uploading,
     analyzing: t.analyzing, done: t.complete, failed: t.failed, canceled: t.canceled
   };
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label={t.heading}>
@@ -52,7 +52,7 @@ export default function UploadQueuePanel({ queue, language }: { queue: DocumentQ
         <AlertCircle size={16} className="shrink-0"/>{queue.notice}</p>}
       <div className="max-h-72 space-y-2 overflow-y-auto">
         {queue.items.map(item => {
-          const working = ['scanning', 'uploading', 'analyzing'].includes(item.status);
+          const working = ['uploading', 'analyzing'].includes(item.status);
           return <div key={item.id} className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
             {item.status === 'done' ? <CheckCircle2 size={19} className="shrink-0 text-emerald-600"/>
               : item.status === 'failed' ? <AlertCircle size={19} className="shrink-0 text-red-500"/>
@@ -61,7 +61,7 @@ export default function UploadQueuePanel({ queue, language }: { queue: DocumentQ
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-slate-800" title={item.file.name}>{item.file.name}</p>
               <p className={'mt-0.5 text-[11px] ' + (item.status === 'failed' ? 'text-red-600' : 'text-slate-500')}>
-                {item.error || status[item.status]}{item.status === 'scanning' ? ' · ' + item.progress + '%' : ''}
+                {item.error || status[item.status]}
               </p>
             </div>
             {item.status === 'queued' && <button type="button" onClick={() => queue.cancel(item.id)}
