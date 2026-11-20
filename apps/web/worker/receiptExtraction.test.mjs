@@ -322,3 +322,55 @@ test('OCR issuer and cloud category are resolved independently', () => {
   assert.equal(result.merchant, 'ZETA LOJA LTDA');
   assert.equal(result.category, 'compras');
 });
+
+
+test('quoted product inside a visual narrative can validate category in first OCR paragraph', () => {
+  const ocr = 'O documento é um cupom fiscal do POSTO ROTA NORTE LTDA. Um item comprado é água mineral 500ml, por R$ 4,50. Pagamento em cartão.';
+  const result = resolveReceiptMetadata(ocr, {
+    category: 'alimentacao',
+    item_evidence: 'água mineral',
+    subcategory: 'Água mineral'
+  });
+  assert.equal(result.category, 'alimentacao');
+});
+
+test('new product types can be categorized semantically without hardcoded item keywords', () => {
+  const ocr = [
+    'RAZÃO SOCIAL: LOJA DE PEÇAS EXEMPLO LTDA',
+    'Descrição Qtde Valor',
+    'FILTRO DE LINHA 3 TOMADAS 1 UN 39,90',
+    'TOTAL R$ 39,90'
+  ].join('\n');
+  const result = resolveReceiptMetadata(ocr, {
+    category: 'Compras', subcategory: 'Filtro de linha',
+    item_evidence: 'FILTRO DE LINHA'
+  });
+  assert.equal(result.category, 'compras');
+});
+
+test('category evidence is accepted in a purchased-product sentence even without table', () => {
+  const ocr = 'O consumidor comprou uma bateria de carro por R$ 450,00.';
+  assert.equal(categoryEvidenceMatches('bateria de carro', ocr), true);
+  const result = resolveReceiptMetadata(ocr, {
+    category: 'Compras', item_evidence: 'bateria de carro'
+  });
+  assert.equal(result.category, 'compras');
+});
+
+test('no category is assigned from a gas station name and total alone', () => {
+  const ocr = 'AUTO POSTO ABC COMBUSTIVEIS LTDA\nCNPJ: 12.345.678/0001-90\nVALOR TOTAL R$ 44,50';
+  const result = resolveReceiptMetadata(ocr, {
+    category: 'Combustível',
+    item_evidence: 'COMBUSTIVEIS',
+    subcategory: 'Abastecimento'
+  });
+  assert.equal(result.category, null);
+});
+
+test('a fiscal access key must not turn into a merchandise category', () => {
+  const ocr = 'Chave de acesso: 35261112345678000190650010000000110000111111\nVALOR TOTAL R$ 25,00';
+  assert.equal(resolveReceiptMetadata(ocr, {
+    category: 'Compras', item_evidence: 'Chave de acesso',
+    subcategory: 'Chave'
+  }).category, null);
+});
