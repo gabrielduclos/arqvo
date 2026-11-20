@@ -187,3 +187,58 @@ test('OCR slash Razão Social prefix removed but legal business name kept', () =
   assert.equal(merchantCandidate(raw + '\nCNPJ: 12.345.678/0001-90')?.value,
     'POSTO NOVA PARADA LTDA ME');
 });
+
+
+const anschauNarrative = [
+  'Descrição da Imagem',
+  'A imagem é uma fotografia em preto e branco de um cupom fiscal eletrônico (NFC-e).',
+  'Conteúdo do Cupom Fiscal',
+  'O documento detalha uma transação comercial com as seguintes informações:',
+  'Identificação do Estabelecimento: O cupom pertence à empresa ANSCHAU E EMERENCIANO LTDA, situada na Avenida Tancredo Neves, nº 585, centro, Jandaia do Sul - PR.',
+  'Lista de Itens: Constam sete itens na nota, incluindo:',
+  'Assados em Tiras 400gr com acompanhamento (R$ 89,90)',
+  'Muita Carne (R$ 50,00)',
+  'Brazerinho kids (R$ 7,90)',
+  'Coca Lata (R$ 0,00)',
+  'Suco Nattu 300 ML Laranja (R$ 10,00)',
+  'Refrigerantes Lata (R$ 7,00)',
+  'Pulled Pork Braza (R$ 0,00)',
+  'Totais e Pagamento: O valor total da compra é de R$ 164,80, pago através da modalidade Crédito.',
+  'Dados de Emissão: A nota foi emitida em 05/10/2026, às 21:07:40.',
+  'Elementos Visuais e Técnicos',
+  'Códigos de Verificação: Na parte inferior, destaca-se um Código QR centralizado.',
+  'Informações Tributárias: Há uma seção detalhando os tributos incidentes, totalizando R$ 53,63.'
+].join('\n');
+
+test('ANSCHAU vision description extracts actual business, not word empresa', () => {
+  assert.equal(merchantCandidate(anschauNarrative)?.value, 'ANSCHAU E EMERENCIANO LTDA');
+  assert.equal(cleanMerchantLabel('empresa ANSCHAU E EMERENCIANO LTDA'), 'ANSCHAU E EMERENCIANO LTDA');
+});
+
+test('ANSCHAU vision description preserves all seven product items', () => {
+  const scope = receiptItemLines(anschauNarrative);
+  assert.equal(scope.explicit, true);
+  assert.equal(scope.lines.length, 7);
+  assert.ok(scope.lines[0].includes('Assados em Tiras'));
+  assert.ok(scope.lines[6].includes('Pulled Pork'));
+  assert.ok(!scope.lines.some(line => line.includes('Totais e Pagamento')));
+});
+
+test('ANSCHAU cupom categorizes prepared meals as Alimentação, not mixed or Mercado', () => {
+  const category = categoryCandidate(anschauNarrative);
+  assert.equal(category?.category, 'alimentacao');
+  assert.equal(category?.subcategory, 'Alimentação');
+  assert.ok(category?.evidence.includes('Assados em Tiras'));
+});
+
+test('merchant from prose and meal classification do not depend on company sector', () => {
+  const excerpt = [
+    'O cupom pertence à empresa POSTO ESTRELA LTDA, situada no centro.',
+    'Lista de Itens: Constam dois itens:',
+    'Coca Lata R$ 7,00',
+    'Assados com acompanhamento R$ 23,00',
+    'Totais e Pagamento: R$ 30,00'
+  ].join('\n');
+  assert.equal(merchantCandidate(excerpt)?.value, 'POSTO ESTRELA LTDA');
+  assert.equal(categoryCandidate(excerpt)?.category, 'alimentacao');
+});
