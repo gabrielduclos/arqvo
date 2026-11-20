@@ -178,3 +178,13 @@ export async function readScan(
     await worker.terminate();
   }
 }
+
+
+/** Render the chosen crop for cloud OCR while keeping the original upload intact. */
+export async function prepareScanImage(file: File, options: ScanOptions): Promise<Blob> {
+  const canvas = await renderImage(file, options, 2200);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('scan_export_failed')),
+      'image/jpeg', .84);
+  });
+}
