@@ -264,9 +264,9 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   }
   if (found.size > 1) return { category: 'outros', subcategory: 'Compra mista', evidence: evidence.slice(0, 4).join(' | '), confidence: scope.explicit ? 82 : 60 };
   const rule = [...found.values()][0];
-  const itemText = scope.lines.join(' ');
-  const hasCoffee = /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino)\b/i.test(itemText);
-  const hasWater = /\b(?:[aá]gua\s+mineral)\b/i.test(itemText);
+  const itemText = normalized(scope.lines.join(' '));
+  const hasCoffee = /\b(?:cafe|coffee|espresso|expresso|capuccino|cappuccino)\b/i.test(itemText);
+  const hasWater = /\bagua\s+mineral\b/i.test(itemText);
   const subcategory = rule.code === 'alimentacao'
     ? hasCoffee && hasWater ? 'Café e água mineral' : hasCoffee ? 'Café' : hasWater ? 'Água mineral' : 'Alimentação'
     : rule.sub;
