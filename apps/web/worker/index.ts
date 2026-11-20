@@ -877,6 +877,11 @@ export default {
       if (cancelJob && request.method === 'POST') return markDocumentCanceled(request, env, cancelJob);
       const retryJob = docId(path, '/queue');
       if (retryJob && request.method === 'POST') return handleRetryJob(request, env, retryJob);
+      const editMetadata = docId(path, '/metadata');
+      if (editMetadata && request.method === 'PATCH') {
+        if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+        return proxy(request, env, path);
+      }
       const analyze = docId(path, '/analyze');
       if (analyze && request.method === 'POST') return handleAnalyze(request, env, analyze);
       const localScan = docId(path, '/scan');
