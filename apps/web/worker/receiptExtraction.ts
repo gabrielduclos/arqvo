@@ -99,6 +99,24 @@ function looksIssuer(value: string): boolean {
 
 export function merchantCandidate(text: string): MerchantCandidate | null {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 120);
+
+  // Some vision models return a visual narrative instead of raw OCR lines.
+  // Extract the literal seller name ONLY from explicit issuer statements.
+  // Do not mistake an entire explanatory sentence for the merchant.
+  const narrationIssuer = [
+    /\b(?:documento|cupom|nota(?:\s+fiscal)?|recibo)\s+(?:pertence|corresponde)\s+(?:à|ao|a|o|à\s+empresa|ao\s+estabelecimento)\s+([^,.;\n]{4,130})/i,
+    /\b(?:documento|cupom|nota(?:\s+fiscal)?|recibo)\s+(?:foi\s+)?emitid[oa]\s+(?:por|pela|pelo)\s+([^,.;\n]{4,130})/i,
+    /\b(?:estabelecimento|empresa|emitente)\s+(?:é|se\s+chama|foi\s+identificad[oa]\s+como|identificad[oa]\s+como|:)\s+([^,.;\n]{4,130})/i
+  ];
+  for (const pattern of narrationIssuer) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const candidate = issuerValue(match[1]).replace(/^(?:a\s+empresa|o\s+estabelecimento)\s+/i, '')
+      .replace(/\s+(?:localizad[oa]|situad[oa]|com\s+sede|que\s+fica)\b.*$/i, '').trim();
+    if (looksIssuer(candidate)) {
+      return { value: candidate, source: 'label', confidence: 89 };
+    }
+  }
   // Prefer explicit issuer fields, including labels whose value appears on the following line.
   const issuerLabel = /^(?:nome\s*fantasia|raz[aã]o\s*social|nome\s*empresarial|nome\s+do\s+(?:emitente|estabelecimento)|estabelecimento|emitente|fornecedor|vendedor)\s*[:\-]?\s*(.*)$/i;
   for (let i = 0; i < Math.min(70, lines.length); i++) {
@@ -160,8 +178,8 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
   return null;
 }
 
-const itemHeader = /(?:^|\b)(?:descri[cç][aã]o(?:\s+dos?\s+(?:produtos?|servi[cç]os?|itens?))?|detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?)|itens?\s+(?:comprados|adquiridos|da\s+compra)|produtos?\s+adquiridos|c[oó]d(?:igo)?\s+descri[cç][aã]o|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|item\s+c[oó]d(?:igo)?|produto\s+(?:qtd|qtde))\b/i;
-const stopItems = /^(?:total(?:\s+(?:geral|a\s+pagar|da\s+nota|da\s+compra))?|subtotal|resumo\s+de|pagamento|forma\s+de\s+pagamento|cart[aã]o|pix|troco|desconto|imposto|tributos|informac[oõ]es|consulta|protocolo|consumidor|cpf|cnpj|chave|qr\s*code|observac[oõ]es|valor\s+(?:pago|total|a\s+pagar))\b/i;
+const itemHeader = /(?:^|\b)(?:lista\s+de\s+itens?\s+(?:consumidos?|comprados?|adquiridos?)|itens?\s+consumidos?\s+(?:detalha|inclui)|descri[cç][aã]o(?:\s+dos?\s+(?:produtos?|servi[cç]os?|itens?))?|detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?)|itens?\s+(?:comprados|adquiridos|da\s+compra)|produtos?\s+adquiridos|c[oó]d(?:igo)?\s+descri[cç][aã]o|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|item\s+c[oó]d(?:igo)?|produto\s+(?:qtd|qtde))\b/i;
+const stopItems = /^(?:(?:o\s+)?valor\s+total\b|(?:o\s+)?total\s+da\s+compra\b|(?:a\s+)?forma\s+de\s+pagamento\b|(?:na\s+)?metade\s+inferior\b|(?:a\s+)?chave\s+de\s+acesso\b|(?:o\s+)?rodap[eé]\b|total(?:\s+(?:geral|a\s+pagar|da\s+nota|da\s+compra))?|subtotal|resumo\s+de|pagamento|forma\s+de\s+pagamento|cart[aã]o|pix|troco|desconto|imposto|tributos|informac[oõ]es|consulta|protocolo|consumidor|cpf|cnpj|chave|qr\s*code|observac[oõ]es|valor\s+(?:pago|total|a\s+pagar))\b/i;
 const itemNoise = /^(?:item\s+(?:c[oó]d|descri[cç][aã]o)|cod(?:igo)?\s+(?:descri[cç][aã]o|qtd)|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|qtd\s+(?:unidade|valor)|qtde\s+(?:unidade|valor)|quantidade\s+(?:unidade|valor)|unidade\s+valor|valor\s*un|vl\s*un|vl\s*total|ncm\s+cfop|cfop\s+ncm|pre[cç]o\s+unit|R\$\s*$|serie\s+nota)\b/i;
 
 function priceRow(line: string): boolean {
@@ -246,8 +264,11 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   }
   if (found.size > 1) return { category: 'outros', subcategory: 'Compra mista', evidence: evidence.slice(0, 4).join(' | '), confidence: scope.explicit ? 82 : 60 };
   const rule = [...found.values()][0];
+  const itemText = scope.lines.join(' ');
+  const hasCoffee = /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino)\b/i.test(itemText);
+  const hasWater = /\b(?:[aá]gua\s+mineral)\b/i.test(itemText);
   const subcategory = rule.code === 'alimentacao'
-    ? /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino)\b/i.test(scope.lines.join(' ')) ? 'Café' : 'Alimentação'
+    ? hasCoffee && hasWater ? 'Café e água mineral' : hasCoffee ? 'Café' : hasWater ? 'Água mineral' : 'Alimentação'
     : rule.sub;
   return {
     category: rule.code, subcategory, evidence: evidence.slice(0, 3).join(' | '),
