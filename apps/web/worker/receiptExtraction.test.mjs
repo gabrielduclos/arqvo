@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { merchantCandidate, categoryCandidate, receiptItemLines } from './receiptExtraction.ts';
+import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName } from './receiptExtraction.ts';
 
 const sample = [
   'PET ada',
@@ -68,4 +68,20 @@ test('the printed item header preserves product rows for OCR processing', () => 
   assert.equal(scope.explicit, true);
   assert.ok(scope.lines.some(line => line.includes('CAFE EXPESSO')));
   assert.ok(!scope.lines.some(line => /MySOFT/i.test(line)));
+});
+
+
+test('AI commentary cannot be saved as the merchant name', () => {
+  const ocr = [
+    'Sabor do Presidente Restaurante Ltda',
+    'CNPJ: 12.345.678/0001-90',
+    'HAMBURGUER 45,00',
+    'TOTAL R$ 45,00'
+  ].join('\n');
+  assert.equal(isPlainMerchantName('O cabeçalho identifica o restaurante como "Sabor do Presidente Restaurante Ltda".', ocr), false);
+  assert.equal(isPlainMerchantName('Sabor do Presidente Restaurante Ltda', ocr), true);
+});
+
+test('a merchant cannot be invented when absent from OCR', () => {
+  assert.equal(isPlainMerchantName('Restaurante Fictício Ltda', 'Valor Total R$ 45,00'), false);
 });
