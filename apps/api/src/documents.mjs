@@ -323,6 +323,29 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
     }
   });
 
+  // If a mobile browser aborts at the upload/commit boundary, the queue can
+  // still receive the upload. Only its exact signed job may discard that orphan.
+  app.post('/api/internal/documents/:id/discard', async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    const id = request.params.id;
+    if (!UUID_RE.test(id)) return sendError(reply, 400, 'invalid_document_id');
+    const provided = request.headers['x-arqvo-job-token'];
+    if (typeof provided !== 'string') return sendError(reply, 403, 'invalid_job_token');
+    try {
+      const found = await pool.query('SELECT owner_uid, object_key FROM public.documents WHERE id=$1', [id]);
+      if (!found.rowCount) return { discarded: true };
+      const { owner_uid: owner, object_key: key } = found.rows[0];
+      const expected = signDocumentJob(jobSigningSecret, owner, id, key);
+      if (!validJobToken(expected, provided)) return sendError(reply, 403, 'invalid_job_token');
+      await pool.query('DELETE FROM public.documents WHERE id=$1 AND owner_uid=$2 AND object_key=$3',
+        [id, owner, key]);
+      return { discarded: true };
+    } catch (err) {
+      request.log.error({ err }, 'Canceled upload discard failed');
+      return sendError(reply, 503, 'documents_unavailable');
+    }
+  });
+
   // User corrections take precedence over future automated extraction runs.
   app.patch('/api/documents/:id/metadata', async (request, reply) => {
     const userId = await requireSession(request, reply);
