@@ -10,7 +10,7 @@ export function cleanMerchantLabel(value: string): string {
   // OCR/vision frequently emits "/Razão Social:" or "Nome:" before the
   // business name; labels are metadata, not part of the legal name.
   return value.trim()
-    .replace(/^(?:(?:[\s/\\|–—-]*)(?:(?:nome(?:\s+(?:fantasia|do\s+estabelecimento))?|raz[aã]o\s+social|estabelecimento|emitente)\s*[:：]\s*))+?/i, '')
+    .replace(/^(?:[\s/\\|–—-]*(?:nome(?:\s+(?:fantasia|do\s+estabelecimento))?|raz[aã]o\s+social|estabelecimento|emitente)\s*[:：]\s*)+/i, '')
     .trim();
 }
 
