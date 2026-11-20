@@ -277,6 +277,26 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
     return result;
   });
 
+  // The Worker calls this authenticated endpoint when the user retries a
+  // previously uploaded document. The scoped token never reaches the browser.
+  app.post('/api/documents/:id/job-token', async (request, reply) => {
+    const userId = await requireSession(request, reply);
+    if (!userId || !requireOrigin(request, reply)) return;
+    const id = request.params.id;
+    if (!UUID_RE.test(id)) return sendError(reply, 400, 'invalid_document_id');
+    try {
+      const found = await queryDoc(userId, id);
+      if (!found.rowCount) return sendError(reply, 404, 'document_not_found');
+      const doc = found.rows[0];
+      const jobToken = signDocumentJob(jobSigningSecret, userId, id, doc.objectKey);
+      if (!jobToken) return sendError(reply, 503, 'job_signing_unavailable');
+      return { document: doc, jobToken };
+    } catch (err) {
+      request.log.error({ err }, 'Document job authorization failed');
+      return sendError(reply, 503, 'documents_unavailable');
+    }
+  });
+
   // The Cloudflare Queue consumer has no user session. It receives an HMAC
   // capability bound to one owner, one immutable document ID and R2 object key.
   // A leaked document ID or object key alone cannot authorize a write.
