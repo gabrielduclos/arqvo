@@ -5,6 +5,13 @@
 export type MerchantCandidate = { value: string; source: 'label' | 'cnpj' | 'header'; confidence: number };
 export type CategoryCandidate = { category: string; subcategory: string; evidence: string; confidence: number };
 
+/** Remove OCR field labels from an extracted establishment name. */
+export function cleanMerchantLabel(value: string): string {
+  return value.trim()
+    .replace(/^(?:(?:nome(?:\s+fantasia)?|raz[aã]o\s+social|estabelecimento)\s*[:：]\s*)+/i, '')
+    .trim();
+}
+
 export function normalized(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -79,7 +86,7 @@ export function modelMerchantName(candidate: unknown, text: string): string | nu
 
 
 function issuerValue(value: string): string {
-  return value.replace(/^(?:[-–—:]\s*)+/, '')
+  return cleanMerchantLabel(value).replace(/^(?:[-–—:]\s*)+/, '')
     .replace(/\s+(?:CNPJ|CPF)\s*[:.]?\s*\d.*$/i, '')
     .replace(/\s{2,}/g, ' ').trim().slice(0, 160);
 }
