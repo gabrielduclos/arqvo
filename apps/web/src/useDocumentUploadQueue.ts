@@ -55,20 +55,26 @@ export function useDocumentUploadQueue(
         let documentId = next.documentId;
         let scan = next.scan;
         try {
-          if (!scan && file.type.startsWith('image/')) {
+          if (!scan && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
             patch(id, { status: 'scanning', progress: 0 });
             try {
-              // Manual crop choices are applied in the background queue, not in the modal.
-              // Batch photos still use automatic crop detection when there is no user selection.
-              const options = next.scanOptions ?? { rotation: 0, enhance: true, crop: FULL_CROP };
-              const effective = next.scanOptions ? options : {
-                ...options,
-                crop: (await scanPreview(file, options)).suggestedCrop ?? FULL_CROP
-              };
-              const extracted = await readScan(file, effective, percentage => patch(id, { progress: percentage }));
-              scan = { text: extracted.text, confidence: extracted.confidence };
+              if (file.type === 'application/pdf') {
+                // Text PDFs and scanned PDF pages share the local OCR stage.
+                const { readPdfScan } = await import('./pdfScanner');
+                const extracted = await readPdfScan(file, percentage => patch(id, { progress: percentage }));
+                scan = { text: extracted.text, confidence: extracted.confidence };
+              } else {
+                const options = next.scanOptions ?? { rotation: 0, enhance: true, crop: FULL_CROP };
+                const effective = next.scanOptions ? options : {
+                  ...options,
+                  crop: (await scanPreview(file, options)).suggestedCrop ?? FULL_CROP
+                };
+                const extracted = await readScan(file, effective, percentage => patch(id, { progress: percentage }));
+                scan = { text: extracted.text, confidence: extracted.confidence };
+              }
             } catch {
-              // On-device OCR is optional: AI vision can still read an uploaded photo.
+              // Unsupported/encrypted PDF or unavailable OCR engine:
+              // the cloud can still attempt to transcribe the original.
               scan = { text: '', confidence: 0 };
             }
             patch(id, { scan, progress: 100 });
