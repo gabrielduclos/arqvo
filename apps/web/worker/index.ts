@@ -172,6 +172,23 @@ async function isJobCanceled(env: Env, job: BackgroundJob): Promise<boolean> {
   return Boolean(job.uploadId && UUID.test(job.uploadId) &&
     await env.DOCS_BUCKET.get(uploadCancellationKey(job.ownerId, job.uploadId)));
 }
+async function discardCanceledUpload(env: Env, job: BackgroundJob): Promise<boolean> {
+  if (!job.uploadId || !UUID.test(job.uploadId) ||
+      !await env.DOCS_BUCKET.get(uploadCancellationKey(job.ownerId, job.uploadId))) return false;
+  const response = await fetch(apiUrl(env, '/api/internal/documents/' + job.documentId + '/discard'), {
+    method: 'POST', headers: {
+      Accept: 'application/json',
+      'X-Arqvo-Job-Token': job.token
+    }, signal: AbortSignal.timeout(30000)
+  });
+  if (!response.ok) throw new Error('canceled_upload_cleanup_failed');
+  await Promise.all([
+    env.DOCS_BUCKET.delete(job.objectKey).catch(() => {}),
+    job.ocrObjectKey ? env.DOCS_BUCKET.delete(job.ocrObjectKey).catch(() => {}) : Promise.resolve(),
+    env.DOCS_BUCKET.delete(jobStateKey(job.ownerId, job.documentId)).catch(() => {})
+  ]);
+  return true;
+}
 async function markUploadCanceled(request: Request, env: Env, uploadId: string): Promise<Response> {
   if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
   const user = await authorized(request, env);
@@ -749,9 +766,10 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
       !job.objectKey.startsWith(encodeURIComponent(job.ownerId) + '/') ||
       !MIME.has(job.mimeType)) throw new Error('invalid_job');
   const state = await readJobState(env, job.ownerId, job.documentId);
+  if (await discardCanceledUpload(env, job)) return;
   if (state?.status === 'done' || state?.status === 'canceled' || await isJobCanceled(env, job)) return;
   await setJobState(env, job, 'processing', attempts);
-  if (await isJobCanceled(env, job)) return;
+  if (await discardCanceledUpload(env, job) || await isJobCanceled(env, job)) return;
   const original = await env.DOCS_BUCKET.get(job.objectKey);
   if (!original) throw new Error('file_not_found');
   const cropKey = job.ocrObjectKey?.startsWith('_arqvo_ocr/' + encodeURIComponent(job.ownerId) + '/')
@@ -764,7 +782,7 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
   let fields: Record<string, any> | null = null;
   try { fields = await inferFields(env, extracted.text); }
   catch { /* Deterministic extraction still preserves useful OCR fields. */ }
-  if (await isJobCanceled(env, job)) return;
+  if (await discardCanceledUpload(env, job) || await isJobCanceled(env, job)) return;
   const fakeRequest = new Request('https://arqvo.invalid/api/queue');
   const response = await persistDocumentAnalysis(fakeRequest, env, job.documentId,
     extracted.text, fields, extracted.method, true, null, job.token);
@@ -773,7 +791,8 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
     if (response.status === 403) throw new Error('job_not_authorized');
     throw new Error('analysis_save_failed_' + response.status);
   }
-  if (!await isJobCanceled(env, job)) await setJobState(env, job, 'done', attempts);
+  if (!await discardCanceledUpload(env, job) && !await isJobCanceled(env, job))
+    await setJobState(env, job, 'done', attempts);
 }
 
 
