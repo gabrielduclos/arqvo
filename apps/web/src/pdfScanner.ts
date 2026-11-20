@@ -32,7 +32,9 @@ export async function readPdfScan(
       const page = await pdf.getPage(index);
       try {
         const content = await page.getTextContent();
-        const nativeText = content.items.map(item => 'str' in item ? item.str : '').join(' ').trim();
+        const nativeText = content.items.map(item =>
+          'str' in item ? item.str + ('hasEOL' in item && item.hasEOL ? '\n' : ' ') : ''
+        ).join('').trim();
         let pageText = nativeText;
         // Image-based PDFs have little or no selectable text. OCR the page,
         // while preserving any native text where useful for proper names.
