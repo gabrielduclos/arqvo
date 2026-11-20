@@ -105,7 +105,7 @@ const words = {
   }
 };
 const cleanMerchant = (name: string | null | undefined): string =>
-  (name || '').replace(/^\s*nome\s*[:：]\s*/i, '').trim();
+  (name || '').replace(/^(?:[\s/\\|–—-]*(?:nome(?:\s+fantasia)?|raz[aã]o\s+social|estabelecimento)\s*[:：]\s*)+/i, '').trim();
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
