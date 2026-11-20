@@ -64,7 +64,7 @@ export default function UploadQueuePanel({ queue, language }: { queue: DocumentQ
                 {status[item.status]}
               </p>
             </div>
-            {item.status === 'queued' && <button type="button" onClick={() => queue.cancel(item.id)}
+            {['queued', 'uploading', 'analyzing'].includes(item.status) && <button type="button" onClick={() => void queue.cancel(item.id)}
               aria-label={t.cancel} title={t.cancel}
               className="flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white"><X size={17}/></button>}
             {item.status === 'failed' && <button type="button" onClick={() => queue.retry(item.id)}
