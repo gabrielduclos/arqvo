@@ -23,6 +23,7 @@ interface BackgroundJob {
   documentId: string;
   ownerId: string;
   objectKey: string;
+  ocrObjectKey?: string;
   filename: string;
   mimeType: string;
   token: string;
@@ -156,6 +157,9 @@ async function boundedBuffer(request: Request): Promise<ArrayBuffer | null> {
 
 // Every state change is written to R2 so the browser is only a viewer.
 // These keys are separate from private original-file keys.
+function ocrPreviewKey(ownerId: string, id: string): string {
+  return '_arqvo_ocr/' + encodeURIComponent(ownerId) + '/' + id;
+}
 function jobStateKey(ownerId: string, id: string): string {
   return '_arqvo_jobs/' + encodeURIComponent(ownerId) + '/' + id + '.json';
 }
@@ -212,8 +216,12 @@ async function handleRetryJob(request: Request, env: Env, id: string): Promise<R
       typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
     return fail(503, 'job_not_authorized');
   }
+  const previewKey = ocrPreviewKey(user.id, id);
+  const hasPreview = doc.mimeType.startsWith('image/') &&
+    Boolean(await env.DOCS_BUCKET.get(previewKey).catch(() => null));
   const job: BackgroundJob = {
     documentId: id, ownerId: user.id, objectKey: doc.objectKey,
+    ocrObjectKey: hasPreview ? previewKey : undefined,
     filename: doc.filename, mimeType: doc.mimeType, token
   };
   try { await enqueueJob(env, job); } catch { return fail(503, 'queue_unavailable'); }
@@ -231,10 +239,33 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
   if (!filename || filename.length > 255 || /[\\/\u0000-\u001f\u007f]/.test(filename)) {
     return fail(400, 'invalid_filename');
   }
-  const raw = await boundedBuffer(request);
+  const contentType = request.headers.get('content-type') || '';
+  let raw: ArrayBuffer | null = null;
+  let preview: ArrayBuffer | null = null;
+  let declaredMime = contentType.split(';')[0].trim().toLowerCase();
+  if (declaredMime === 'multipart/form-data') {
+    // The original and the client-adjusted OCR image are transferred
+    // atomically. Reject oversized requests before parsing multipart data.
+    if (Number(request.headers.get('content-length') || '0') > LIMIT_BYTES + 7 * 1024 * 1024) {
+      return fail(413, 'file_too_large_or_empty');
+    }
+    const form = await request.formData().catch(() => null);
+    const original = form?.get('original');
+    const scan = form?.get('ocr');
+    if (!(original instanceof File) || original.size < 1 || original.size > LIMIT_BYTES ||
+        !MIME.has(original.type)) return fail(413, 'file_too_large_or_empty');
+    raw = await original.arrayBuffer();
+    declaredMime = original.type;
+    if (scan instanceof File && scan.size > 0 && scan.size <= 6 * 1024 * 1024 &&
+        scan.type === 'image/jpeg') {
+      preview = await scan.arrayBuffer();
+      if (sniff(new Uint8Array(preview)) !== 'image/jpeg') preview = null;
+    }
+  } else {
+    raw = await boundedBuffer(request);
+  }
   if (!raw) return fail(413, 'file_too_large_or_empty');
   const actualMime = sniff(new Uint8Array(raw));
-  const declaredMime = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (!actualMime || !MIME.has(actualMime) || actualMime !== declaredMime) {
     return fail(415, 'unsupported_file');
   }
@@ -261,8 +292,17 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
       // support job tokens; keep the original and expose a retryable state.
       return json({ document: doc, queued: false, error: 'job_not_ready' }, 201);
     }
+    // The crop is a separate OCR-only object; the original remains unchanged.
+    let ocrObjectKey: string | undefined;
+    if (preview && actualMime.startsWith('image/')) {
+      const key = ocrPreviewKey(user.id, doc.id);
+      try {
+        await env.DOCS_BUCKET.put(key, preview, { httpMetadata: { contentType: 'image/jpeg' } });
+        ocrObjectKey = key;
+      } catch { /* Cloud analysis can still read the original. */ }
+    }
     const job: BackgroundJob = {
-      documentId: doc.id, ownerId: user.id, objectKey,
+      documentId: doc.id, ownerId: user.id, objectKey, ocrObjectKey,
       filename, mimeType: actualMime, token
     };
     try {
@@ -320,7 +360,11 @@ async function handleDelete(request: Request, env: Env, id: string): Promise<Res
   const res = await fromBackend(request, env, '/api/documents/' + id, 'DELETE');
   if (!res.ok) return json(await jsonBody(res), res.status);
   try {
-    await env.DOCS_BUCKET.delete(doc.objectKey);
+    await Promise.all([
+      env.DOCS_BUCKET.delete(doc.objectKey),
+      env.DOCS_BUCKET.delete(ocrPreviewKey(user.id, id)).catch(() => {}),
+      env.DOCS_BUCKET.delete(jobStateKey(user.id, id)).catch(() => {})
+    ]);
     return json({ deleted: true });
   } catch {
     // Metadata removed; the orphaned object is no longer accessible by app ID.
@@ -662,9 +706,14 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
   const state = await readJobState(env, job.ownerId, job.documentId);
   if (state?.status === 'done') return;
   await setJobState(env, job, 'processing', attempts);
-  const object = await env.DOCS_BUCKET.get(job.objectKey);
-  if (!object) throw new Error('file_not_found');
-  const extracted = await readDocumentText(env, job.filename, job.mimeType, await object.arrayBuffer());
+  const original = await env.DOCS_BUCKET.get(job.objectKey);
+  if (!original) throw new Error('file_not_found');
+  const cropKey = job.ocrObjectKey?.startsWith('_arqvo_ocr/' + encodeURIComponent(job.ownerId) + '/')
+    ? job.ocrObjectKey : undefined;
+  const cropped = cropKey ? await env.DOCS_BUCKET.get(cropKey).catch(() => null) : null;
+  const source = cropped || original;
+  const extracted = await readDocumentText(env, job.filename,
+    cropped ? 'image/jpeg' : job.mimeType, await source.arrayBuffer());
   if (extracted.text.trim().length < 12) throw new Error('ocr_unavailable');
   let fields: Record<string, any> | null = null;
   try { fields = await inferFields(env, extracted.text); }
