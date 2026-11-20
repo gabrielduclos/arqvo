@@ -1,4 +1,5 @@
-import { merchantCandidate, categoryCandidate, receiptItemLines, evidencedInText, modelMerchantName, categoryEvidenceMatches, cleanMerchantLabel } from './receiptExtraction';
+import { merchantCandidate, categoryCandidate, receiptItemLines } from './receiptExtraction';
+import { resolveReceiptMetadata } from './receiptResolution';
 interface DocumentData {
   id: string; filename: string; mimeType: string; sizeBytes: number;
   objectKey: string; merchant: string | null; documentDate: string | null;
@@ -608,34 +609,8 @@ async function persistDocumentAnalysis(
   fields: Record<string, any> | null, method: string, aiUsed: boolean,
   visionMerchant: string | null = null, jobToken: string | null = null
 ): Promise<Response> {
-  const merchantHint = merchantCandidate(extractedText);
-  const itemHint = categoryCandidate(extractedText);
-  const itemScope = receiptItemLines(extractedText).lines.join(' ');
-  const modelMerchant = modelMerchantName(fields?.merchant, extractedText) ?? '';
-  // The seller must be mentioned in the OCR output; any explanation from the
-  // model is converted to a literal business name, never stored verbatim.
-  // Evidence can differ slightly because photo OCR misses punctuation.
-  const merchant = cleanMerchantLabel(visionMerchant || (
-    merchantHint && merchantHint.confidence >= 80
-      ? merchantHint.value
-      : modelMerchant
-  ));
-  const modelCategory = typeof fields?.category === 'string' &&
-    CATEGORY_CODES.has(fields.category.toLowerCase().trim()) ? fields.category.toLowerCase().trim() : null;
-  const itemEvidence = typeof fields?.item_evidence === 'string' ? fields.item_evidence.trim() : '';
-  // Category evidence must refer to a purchased item, not the store name.
-  // Unlike the previous check, this supports real OCR with split price rows
-  // and photo descriptions that present product lines in prose.
-  const modelCategoryValid = !!modelCategory && !!itemEvidence &&
-    categoryEvidenceMatches(itemEvidence, extractedText, merchant);
-  const category = itemHint?.confidence && itemHint.confidence >= 85
-    ? itemHint.category
-    : modelCategoryValid ? modelCategory : itemHint?.category ?? null;
-  const subcategory = itemHint?.confidence && itemHint.confidence >= 85
-    ? itemHint.subcategory
-    : modelCategoryValid
-      ? (typeof fields?.subcategory === 'string' ? fields.subcategory.trim().slice(0, 80) : '')
-      : itemHint?.subcategory ?? '';
+  const { merchant, category, subcategory } =
+    resolveReceiptMetadata(extractedText, fields, visionMerchant);
   const hints = readReceiptHints(extractedText);
   const date = normalizeDocumentDate(fields?.document_date) ?? hints.date;
   const numericAmount = typeof fields?.amount_cents === 'string' && /^\d{1,12}$/.test(fields.amount_cents)
