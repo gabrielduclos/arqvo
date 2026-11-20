@@ -766,7 +766,27 @@ async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: numb
 }
 
 
+async function keepRenderApiAlive(env: Env): Promise<void> {
+  // A lightweight, unauthenticated liveness request is sufficient to keep
+  // a Render Free web service from idling. Do not probe the database or invoke
+  // any document/AI processing as part of this scheduled check.
+  const healthUrl = apiUrl(env, '/health/live');
+  const response = await fetch(healthUrl, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
+    signal: AbortSignal.timeout(90000)
+  });
+  if (!response.ok) {
+    throw new Error('render_api_keepalive_http_' + response.status);
+  }
+  console.log('render_api_keepalive_ok');
+}
+
+
 export default {
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    await keepRenderApiAlive(env);
+  },
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = atPath(request);
     const path = url.pathname;
