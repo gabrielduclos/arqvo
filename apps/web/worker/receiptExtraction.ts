@@ -11,6 +11,7 @@ export function cleanMerchantLabel(value: string): string {
   // business name; labels are metadata, not part of the legal name.
   return value.trim()
     .replace(/^(?:[\s/\\|–—-]*(?:nome(?:\s+(?:fantasia|do\s+estabelecimento))?|raz[aã]o\s+social|estabelecimento|emitente)\s*[:：]\s*)+/i, '')
+    .replace(/^(?:(?:a|o)\s+)?empresa\s+(?=[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ])/i, '')
     .trim();
 }
 
@@ -120,7 +121,8 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
   for (const pattern of narrationIssuer) {
     const match = text.match(pattern);
     if (!match) continue;
-    const candidate = issuerValue(match[1]).replace(/^(?:a\s+empresa|o\s+estabelecimento)\s+/i, '')
+    const candidate = issuerValue(match[1]).replace(/^(?:(?:a|o)\s+)?empresa\s+/i, '')
+      .replace(/^(?:o\s+estabelecimento)\s+/i, '')
       .replace(/\s+(?:localizad[oa]|situad[oa]|com\s+sede|que\s+fica)\b.*$/i, '').trim();
     if (looksIssuer(candidate)) {
       return { value: candidate, source: 'label', confidence: 89 };
@@ -188,7 +190,7 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
 }
 
 const itemHeader = /(?:^|\b)(?:lista\s+de\s+itens?\s+(?:consumidos?|comprados?|adquiridos?)|itens?\s+consumidos?\s+(?:detalha|inclui)|descri[cç][aã]o(?:\s+dos?\s+(?:produtos?|servi[cç]os?|itens?))?|detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?)|itens?\s+(?:comprados|adquiridos|da\s+compra)|produtos?\s+adquiridos|c[oó]d(?:igo)?\s+descri[cç][aã]o|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|item\s+c[oó]d(?:igo)?|produto\s+(?:qtd|qtde))\b/i;
-const stopItems = /^(?:(?:o\s+)?valor\s+total\b|(?:o\s+)?total\s+da\s+compra\b|(?:a\s+)?forma\s+de\s+pagamento\b|(?:na\s+)?metade\s+inferior\b|(?:a\s+)?chave\s+de\s+acesso\b|(?:o\s+)?rodap[eé]\b|total(?:\s+(?:geral|a\s+pagar|da\s+nota|da\s+compra))?|subtotal|resumo\s+de|pagamento|forma\s+de\s+pagamento|cart[aã]o|pix|troco|desconto|imposto|tributos|informac[oõ]es|consulta|protocolo|consumidor|cpf|cnpj|chave|qr\s*code|observac[oõ]es|valor\s+(?:pago|total|a\s+pagar))\b/i;
+const stopItems = /^(?:(?:totais?\s+e\s+pagamento|dados?\s+de\s+emiss[aã]o|elementos?\s+visuais?|elementos?\s+t[eé]cnicos?|informa[cç][oõ]es?\s+tribut[aá]rias?|c[oó]digos?\s+de\s+verifica[cç][aã]o|est[eé]tica)\s*:?|(?:o\s+)?valor\s+total\b|(?:o\s+)?total\s+da\s+compra\b|(?:a\s+)?forma\s+de\s+pagamento\b|(?:na\s+)?metade\s+inferior\b|(?:a\s+)?chave\s+de\s+acesso\b|(?:o\s+)?rodap[eé]\b|total(?:\s+(?:geral|a\s+pagar|da\s+nota|da\s+compra))?|subtotal|resumo\s+de|pagamento|forma\s+de\s+pagamento|cart[aã]o|pix|troco|desconto|imposto|tributos|informac[oõ]es|consulta|protocolo|consumidor|cpf|cnpj|chave|qr\s*code|observac[oõ]es|valor\s+(?:pago|total|a\s+pagar))\b/i;
 const itemNoise = /^(?:item\s+(?:c[oó]d|descri[cç][aã]o)|cod(?:igo)?\s+(?:descri[cç][aã]o|qtd)|descri[cç][aã]o\s+(?:qtd|qtde|valor|quantidade)|qtd\s+(?:unidade|valor)|qtde\s+(?:unidade|valor)|quantidade\s+(?:unidade|valor)|unidade\s+valor|valor\s*un|vl\s*un|vl\s*total|ncm\s+cfop|cfop\s+ncm|pre[cç]o\s+unit|R\$\s*$|serie\s+nota)\b/i;
 
 function priceRow(line: string): boolean {
@@ -209,8 +211,8 @@ export function receiptItemLines(text: string): { lines: string[]; explicit: boo
   // Header must be a column heading or an explicit introduction to items.
   const start = lines.findIndex(line => {
     const flat = normalized(line);
-    const listIntro = /^(?:a\s+)?(?:lista\s+de\s+)?(?:itens?|produtos?)\s+(?:consumidos?|comprados?|adquiridos?)(?:\s+(?:detalha|inclui|são|sao))?\s*:?\s*$/.test(flat)
-      || /^(?:detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?))\s*:?\s*$/.test(flat);
+    const listIntro = /^(?:(?:a\s+)?lista\s+de\s+(?:itens?|produtos?)(?:\s+(?:consumidos?|comprados?|adquiridos?))?|(?:itens?|produtos?)\s+(?:consumidos?|comprados?|adquiridos?|da\s+compra)|detalhamento\s+(?:dos?\s+)?(?:itens?|produtos?))\b/.test(flat)
+      || /^(?:constam|contem|inclui|incluem|sao)\s+(?:\w+\s+)?(?:itens?|produtos?)\s+(?:na\s+nota|no\s+cupom|comprados?|consumidos?)/.test(flat);
     // A table begins with "Código Descrição Qtd" or "Descrição Valor",
     // never with a phrase such as "A descrição reconhece água no valor de...".
     const tableHeading = /^(?:cod(?:igo)?\s+)?(?:descricao|produto|item)\s+(?:qtd|qtde|quantidade|vl|valor|unidade|preco|unit|total)\b/.test(flat)
@@ -274,7 +276,7 @@ const categories: CategoryRule[] = [
   { code: 'servicos', sub: 'Serviços', rx: /\b(?:servi[cç]o\s+(?:de\s+)?(?:manuten[cç][aã]o|instala[cç][aã]o|limpeza|reparo)|conserto|lavagem\s+automotiva|corte\s+de\s+cabelo)\b/i },
   { code: 'compras', sub: 'Compras', rx: /\b(?:camisetas?|cal[cç]as?|t[eê]nis|sapatos?|roupas?|fones?\s+de\s+ouvido|celular|carregador|brinquedos?)\b/i },
   { code: 'mercado', sub: 'Mercado', rx: /\b(?:arroz|feij[aã]o|a[cç][uú]car|macarr[aã]o|farinha|detergente|sab[aã]o|alvejante|papel\s+higi[eê]nico|frutas?|verduras?|legumes?|carnes?|leite\s+em\s+p[oó])\b/i },
-  { code: 'alimentacao', sub: 'Alimentação', rx: /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino|p[aã]o\s+de\s+queijo|p[aã]o|lanche|sandu[ií]che|refei[cç][aã]o|almo[cç]o|jantar|pizza|salgados?|suco|[aá]gua(?:\s+(?:mineral|com\s+g[aá]s|sem\s+g[aá]s|pot[aá]vel))?|refrigerante|ch[aá]|biscoito|bolo|sorvete|hamb[uú]rguer)\b/i }
+  { code: 'alimentacao', sub: 'Alimentação', rx: /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino|p[aã]o\s+de\s+queijo|p[aã]o|lanche|sandu[ií]che|refei[cç][aã]o|almo[cç]o|jantar|pizza|salgados?|sucos?|[aá]gua(?:\s+(?:mineral|com\s+g[aá]s|sem\s+g[aá]s|pot[aá]vel))?|refrigerantes?|coca(?:\s+(?:cola|lata))?|ch[aá]|biscoito|bolo|sorvete|hamb[uú]rguer|assados?|acompanhamentos?|pulled\s+pork|brazerinho)\b/i }
 ];
 
 export function categoryCandidate(text: string): CategoryCandidate | null {
@@ -297,9 +299,17 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   }
   if (!found.size) return null;
   if (found.has('mercado') && found.has('alimentacao')) {
-    // Multiple grocery staples are still supermarket purchases.
-    const marketRows = scope.lines.filter(line => categories.find(rule => rule.code === 'mercado')!.rx.test(line));
-    if (marketRows.length >= 2) found.delete('alimentacao');
+    const marketRx = categories.find(rule => rule.code === 'mercado')!.rx;
+    const foodRx = categories.find(rule => rule.code === 'alimentacao')!.rx;
+    const marketRows = scope.lines.filter(line => marketRx.test(line)).length;
+    const foodRows = scope.lines.filter(line => foodRx.test(line)).length;
+    // A menu item named "Muita Carne" does not turn an otherwise clear meal
+    // (assados, suco, refrigerante, pulled pork) into a supermarket purchase.
+    // Prepared dishes are evidence of an actual meal, not the merchant sector.
+    const hasPreparedDish = scope.lines.some(line =>
+      /\b(?:assados?|acompanhamentos?|pulled\s+pork|brazerinho|por[cç][aã]o|prato\s+feito|refei[cç][aã]o)\b/i.test(line));
+    if (hasPreparedDish && foodRows >= marketRows) found.delete('mercado');
+    else if (marketRows >= 2 && !hasPreparedDish && marketRows > foodRows) found.delete('alimentacao');
   }
   if (found.size > 1) return { category: 'outros', subcategory: 'Compra mista', evidence: evidence.slice(0, 4).join(' | '), confidence: scope.explicit ? 82 : 60 };
   const rule = [...found.values()][0];
