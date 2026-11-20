@@ -133,7 +133,9 @@ export default function DocumentScannerModal({ file, language, onClose, onConfir
       mode, start: mode === 'pan' ? { x: event.clientX, y: event.clientY } : point(event.clientX, event.clientY),
       initial: crop, pan
     };
-    editor.setPointerCapture(event.pointerId);
+    // Pointer events must be captured by the overlay or handle itself.
+    // Capturing on the parent would bypass onPointerMove attached below.
+    event.currentTarget.setPointerCapture(event.pointerId);
     if (mode !== 'pan' && mode !== 'move') updateLens(event);
   }
   function backgroundDown(event: PointerEvent<HTMLDivElement>) {
