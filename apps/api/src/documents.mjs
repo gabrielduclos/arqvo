@@ -244,16 +244,23 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
     try {
       const result = await pool.query(
         `UPDATE public.documents
-         SET extracted_text=$3,
-             merchant=CASE WHEN merchant_manual THEN merchant ELSE $4 END,
-             document_date=$5, amount_cents=$6,
-             category=CASE WHEN category_manual THEN category ELSE $7 END,
-             subcategory=CASE WHEN category_manual THEN subcategory ELSE $8 END,
+         SET extracted_text=COALESCE(NULLIF($3::text, ''), extracted_text),
+             merchant=CASE
+               WHEN merchant_manual OR NULLIF(btrim($4::text), '') IS NULL THEN merchant
+               ELSE $4 END,
+             document_date=COALESCE($5::date, document_date),
+             amount_cents=COALESCE($6::bigint, amount_cents),
+             category=CASE WHEN category_manual OR $7::text IS NULL THEN category ELSE $7 END,
+             subcategory=CASE WHEN category_manual OR $7::text IS NULL THEN subcategory ELSE $8 END,
              status=CASE WHEN
-               (nullif(btrim(CASE WHEN merchant_manual THEN merchant ELSE $4::text END),'') IS NOT NULL
-                AND ($5::date IS NOT NULL OR $6::bigint IS NOT NULL))
-               OR ($5::date IS NOT NULL AND $6::bigint IS NOT NULL)
-               THEN 'ready' ELSE 'uploaded' END,
+               (nullif(btrim(CASE
+                 WHEN merchant_manual OR NULLIF(btrim($4::text), '') IS NULL
+                   THEN merchant ELSE $4 END), '') IS NOT NULL
+                 AND (COALESCE($5::date, document_date) IS NOT NULL
+                   OR COALESCE($6::bigint, amount_cents) IS NOT NULL))
+               OR (COALESCE($5::date, document_date) IS NOT NULL
+                 AND COALESCE($6::bigint, amount_cents) IS NOT NULL)
+               THEN 'ready' ELSE status END,
              updated_at=now()
          WHERE owner_uid=$1 AND id=$2
          RETURNING id, original_filename AS "filename", mime_type AS "mimeType",
