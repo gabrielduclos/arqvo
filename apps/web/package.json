@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run test && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node --experimental-strip-types --test worker/receiptExtraction.test.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
