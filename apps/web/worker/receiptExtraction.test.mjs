@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName } from './receiptExtraction.ts';
+import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName, modelMerchantName, categoryEvidenceMatches } from './receiptExtraction.ts';
 
 const sample = [
   'PET ada',
@@ -84,4 +84,49 @@ test('AI commentary cannot be saved as the merchant name', () => {
 
 test('a merchant cannot be invented when absent from OCR', () => {
   assert.equal(isPlainMerchantName('Restaurante Fictício Ltda', 'Valor Total R$ 45,00'), false);
+});
+
+
+const narrative = [
+  'A imagem apresenta um cupom fiscal (NFC-e) impresso em papel térmico branco, posicionado verticalmente contra um fundo escuro.',
+  'O documento pertence à LANCHONETE E CHURRASCARIA TOLLUCA, localizada em Castelo Branco, Entre Rios.',
+  'No topo, constam as informações de identificação da empresa, incluindo endereço, CNPJ e telefone.',
+  'A lista de itens consumidos detalha:',
+  '1 Água mineral com gás (510ml) no valor de R$ 6,00.',
+  '1 Café expresso no valor de R$ 7,00.',
+  'O valor total da compra é de R$ 13,00, com a forma de pagamento registrada como cartão de crédito.',
+  'O campo de identificação do cliente indica CONSUMIDOR NÃO IDENTIFICADO.',
+  'A chave de acesso para consulta no site da Fazenda de SP.',
+  'O número da nota fiscal (110477), série 3, datada de 26/10/2026.',
+  'Um QR Code centralizado, destinado à verificação digital da nota.',
+  'O rodapé do cupom fornece informações sobre a carga tributária (R$ 4,07, representando 31,31% do valor).'
+].join('\n');
+
+test('vision description still supplies seller name without saving explanation', () => {
+  const issuer = merchantCandidate(narrative);
+  assert.equal(issuer?.value, 'LANCHONETE E CHURRASCARIA TOLLUCA');
+  assert.ok((issuer?.confidence ?? 0) >= 80);
+});
+
+test('vision description classifies listed food items, not issuer industry', () => {
+  const category = categoryCandidate(narrative);
+  assert.equal(category?.category, 'alimentacao');
+  assert.equal(category?.subcategory, 'Café e água mineral');
+  assert.match(category?.evidence ?? '', /Água mineral/);
+  assert.match(category?.evidence ?? '', /Café expresso/);
+});
+
+test('AI seller explanation is reduced to verified literal seller', () => {
+  assert.equal(modelMerchantName(
+    'O cabeçalho identifica o restaurante como "LANCHONETE E CHURRASCARIA TOLLUCA".', narrative),
+    'LANCHONETE E CHURRASCARIA TOLLUCA');
+  assert.equal(modelMerchantName(
+    'A empresa correta é Restaurante Inventado SA', narrative), null);
+});
+
+test('model item evidence must reference actual purchases', () => {
+  assert.equal(categoryEvidenceMatches('Café expresso', narrative,
+    'LANCHONETE E CHURRASCARIA TOLLUCA'), true);
+  assert.equal(categoryEvidenceMatches('LANCHONETE E CHURRASCARIA TOLLUCA', narrative,
+    'LANCHONETE E CHURRASCARIA TOLLUCA'), false);
 });
