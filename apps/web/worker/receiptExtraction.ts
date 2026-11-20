@@ -16,6 +16,22 @@ const address = /^(?:r(?:ua)?\.?\s|av(?:enida)?\.?\s|rod(?:ovia)?\.?\s|estrada\b
 const price = /(?:R\$\s*|(?:^|\s))\d{1,6}[,.]\d{2}(?:\s|$)/;
 const cnpjPattern = /\b(?:cnpj|c\s*n\s*p\s*j)\s*[:.#-]?\s*(?:\d{2}[.\s]?\d{3}[.\s]?\d{3}[/\s]?\d{4}[-\s]?\d{2})/i;
 const corporateSuffix = /^(?:LTDA\.?|LIMITADA|ME|EPP|EIRELI|S\.?A\.?|S\/A)\s*[,.]?$/i;
+const summaryOrNarration = /\b(?:o\s+cabecalho|a\s+nota|o\s+documento|identifica|identificado\s+como|mostra\s+o|indica\s+que|consta\s+como|parece\s+ser|provavelmente|o\s+estabelecimento\s+(?:e|se\s+chama)|o\s+restaurante\s+(?:e|se\s+chama)|nome\s+do\s+estabelecimento\s+e|segundo\s+o\s+texto|com\s+base\s+no|encontrado\s+na\s+nota)\b/i;
+
+export function isPlainMerchantName(candidate: string, ocrText: string): boolean {
+  const name = candidate.trim().replace(/^[\"“”'‘’]+|[\"“”'‘’]+$/g, '');
+  const flat = normalized(name);
+  // A name has to be a concise, literal issuer name, never a sentence that
+  // explains which name the OCR or LLM thinks it found.
+  if (name.length < 4 || name.length > 125 || flat.split(' ').length > 17 ||
+      summaryOrNarration.test(flat) || /[\n\r:!?]/.test(name) ||
+      /[.!?]\s*$/.test(name)) return false;
+  if (!looksIssuer(name)) return false;
+  // A real merchant must be written somewhere in the OCR input. This rejects
+  // hallucinated brands and conversational AI response strings.
+  return normalized(ocrText).includes(flat);
+}
+
 
 function issuerValue(value: string): string {
   return value.replace(/^(?:[-–—:]\s*)+/, '')
@@ -28,6 +44,7 @@ function looksIssuer(value: string): boolean {
   if (flat.length < 4 || flat.length > 130 || !/[a-z]{3}/i.test(flat)) return false;
   // Legal suffixes and one-word OCR artifacts are not the issuer name.
   if (corporateSuffix.test(clean) || flat.split(' ').length === 1 && /^(?:ltda|eireli|limitada|microempresa|fantasia)$/.test(flat)) return false;
+  if (summaryOrNarration.test(flat)) return false;
   if (docHeading.test(flat) || nonIssuer.test(flat) || address.test(flat)) return false;
   if (/^\d/.test(flat) || (clean.match(/\d/g) || []).length > 7) return false;
   if (price.test(clean) || /[0-9]{2}[:/.-][0-9]{2}/.test(clean)) return false;
