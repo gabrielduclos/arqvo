@@ -246,15 +246,19 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
         `UPDATE public.documents
          SET extracted_text=COALESCE(NULLIF($3::text, ''), extracted_text),
              merchant=CASE
-               WHEN merchant_manual OR NULLIF(btrim($4::text), '') IS NULL THEN merchant
+               WHEN (merchant_manual AND NULLIF(btrim(merchant), '') IS NOT NULL)
+                 OR NULLIF(btrim($4::text), '') IS NULL THEN merchant
                ELSE $4 END,
              document_date=COALESCE($5::date, document_date),
              amount_cents=COALESCE($6::bigint, amount_cents),
-             category=CASE WHEN category_manual OR $7::text IS NULL THEN category ELSE $7 END,
-             subcategory=CASE WHEN category_manual OR $7::text IS NULL THEN subcategory ELSE $8 END,
+             category=CASE WHEN (category_manual AND category IS NOT NULL) OR $7::text IS NULL THEN category ELSE $7 END,
+             subcategory=CASE WHEN (category_manual AND category IS NOT NULL) OR $7::text IS NULL THEN subcategory ELSE $8 END,
+             merchant_manual=merchant_manual AND NULLIF(btrim(merchant), '') IS NOT NULL,
+             category_manual=category_manual AND category IS NOT NULL,
              status=CASE WHEN
                (nullif(btrim(CASE
-                 WHEN merchant_manual OR NULLIF(btrim($4::text), '') IS NULL
+                 WHEN (merchant_manual AND NULLIF(btrim(merchant), '') IS NOT NULL)
+                   OR NULLIF(btrim($4::text), '') IS NULL
                    THEN merchant ELSE $4 END), '') IS NOT NULL
                  AND (COALESCE($5::date, document_date) IS NOT NULL
                    OR COALESCE($6::bigint, amount_cents) IS NOT NULL))
@@ -375,7 +379,8 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSignin
       const result = await pool.query(
         `UPDATE public.documents
          SET merchant=$3, category=$4, subcategory=$5,
-             merchant_manual=true, category_manual=true,
+             merchant_manual=(NULLIF(btrim($3::text), '') IS NOT NULL),
+             category_manual=($4::text IS NOT NULL),
              status=CASE WHEN
                (nullif(btrim($3::text),'') IS NOT NULL AND
                  (document_date IS NOT NULL OR amount_cents IS NOT NULL))
