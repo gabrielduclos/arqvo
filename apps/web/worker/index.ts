@@ -7,9 +7,10 @@ interface DocumentData {
 interface BucketObject {
   body: ReadableStream;
   arrayBuffer(): Promise<ArrayBuffer>;
+  text(): Promise<string>;
 }
 interface Bucket {
-  put(key: string, bytes: ArrayBuffer, metadata?: object): Promise<unknown>;
+  put(key: string, bytes: ArrayBuffer | string, metadata?: object): Promise<unknown>;
   get(key: string): Promise<BucketObject | null>;
   delete(key: string): Promise<void>;
 }
@@ -17,7 +18,26 @@ interface Inference {
   toMarkdown(input: { name: string; blob: Blob }, options?: object): Promise<unknown>;
   run(model: string, options: object): Promise<unknown>;
 }
+type JobState = 'queued' | 'processing' | 'done' | 'failed';
+interface BackgroundJob {
+  documentId: string;
+  ownerId: string;
+  objectKey: string;
+  filename: string;
+  mimeType: string;
+  token: string;
+}
+interface QueueMessage {
+  body: BackgroundJob;
+  attempts: number;
+  ack(): void;
+  retry(options?: { delaySeconds: number }): void;
+}
+interface QueueBatch { messages: QueueMessage[]; }
+interface QueueProducer { send(body: BackgroundJob): Promise<void>; }
+
 interface Env {
+  DOCS_QUEUE: QueueProducer;
   API_ORIGIN: string;
   AI: Inference;
   DOCS_BUCKET: Bucket;
@@ -133,6 +153,73 @@ async function boundedBuffer(request: Request): Promise<ArrayBuffer | null> {
   }
 }
 
+
+// Every state change is written to R2 so the browser is only a viewer.
+// These keys are separate from private original-file keys.
+function jobStateKey(ownerId: string, id: string): string {
+  return '_arqvo_jobs/' + encodeURIComponent(ownerId) + '/' + id + '.json';
+}
+async function setJobState(env: Env, job: BackgroundJob, status: JobState,
+                           attempts = 0, error = ''): Promise<void> {
+  const body = JSON.stringify({
+    id: job.documentId, filename: job.filename, status,
+    attempts, error: error.slice(0, 180), updatedAt: new Date().toISOString()
+  });
+  await env.DOCS_BUCKET.put(jobStateKey(job.ownerId, job.documentId), body, {
+    httpMetadata: { contentType: 'application/json' }
+  });
+}
+async function readJobState(env: Env, ownerId: string, id: string):
+  Promise<Record<string, any> | null> {
+  const object = await env.DOCS_BUCKET.get(jobStateKey(ownerId, id));
+  if (!object) return null;
+  try {
+    const state = JSON.parse(await object.text());
+    return state && typeof state === 'object' ? state : null;
+  } catch { return null; }
+}
+async function enqueueJob(env: Env, job: BackgroundJob): Promise<void> {
+  await setJobState(env, job, 'queued');
+  try { await env.DOCS_QUEUE.send(job); }
+  catch (error) {
+    await setJobState(env, job, 'failed', 0, 'queue_unavailable').catch(() => {});
+    throw error;
+  }
+}
+async function handleJobStatusList(request: Request, env: Env): Promise<Response> {
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  const response = await fromBackend(request, env, '/api/documents');
+  if (!response.ok) return json(await jsonBody(response), response.status);
+  const result = await jsonBody(response);
+  const docs = Array.isArray(result.documents) ? result.documents : [];
+  const jobs = await Promise.all(docs.slice(0, 100).map(async doc => {
+    if (typeof doc.id !== 'string' || !UUID.test(doc.id)) return null;
+    try { return await readJobState(env, user.id, doc.id); } catch { return null; }
+  }));
+  return json({ jobs: jobs.filter(Boolean) });
+}
+async function handleRetryJob(request: Request, env: Env, id: string): Promise<Response> {
+  if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
+  const user = await authorized(request, env);
+  if (!user) return fail(401, 'unauthorized');
+  const res = await fromBackend(request, env, '/api/documents/' + id + '/job-token', 'POST');
+  if (!res.ok) return json(await jsonBody(res), res.status);
+  const body = await jsonBody(res);
+  const doc = body.document as DocumentData | undefined;
+  const token = body.jobToken;
+  if (!doc || doc.id !== id || !doc.objectKey.startsWith(encodeURIComponent(user.id) + '/') ||
+      typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
+    return fail(503, 'job_not_authorized');
+  }
+  const job: BackgroundJob = {
+    documentId: id, ownerId: user.id, objectKey: doc.objectKey,
+    filename: doc.filename, mimeType: doc.mimeType, token
+  };
+  try { await enqueueJob(env, job); } catch { return fail(503, 'queue_unavailable'); }
+  return json({ id, status: 'queued' }, 202);
+}
+
 async function handleUpload(request: Request, env: Env): Promise<Response> {
   if (!sameOrigin(request)) return fail(403, 'origin_forbidden');
   const user = await authorized(request, env);
@@ -165,7 +252,25 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
       await env.DOCS_BUCKET.delete(objectKey).catch(() => {});
       return json(await jsonBody(response), response.status);
     }
-    return json(await jsonBody(response), 201);
+    const body = await jsonBody(response);
+    const doc = body.document as DocumentData | undefined;
+    const token = body.jobToken;
+    if (!doc || !UUID.test(doc.id) || typeof token !== 'string' ||
+        !/^[a-f0-9]{64}$/i.test(token)) {
+      // Registration was successful, but the API deployment may not yet
+      // support job tokens; keep the original and expose a retryable state.
+      return json({ document: doc, queued: false, error: 'job_not_ready' }, 201);
+    }
+    const job: BackgroundJob = {
+      documentId: doc.id, ownerId: user.id, objectKey,
+      filename, mimeType: actualMime, token
+    };
+    try {
+      await enqueueJob(env, job);
+      return json({ document: doc, queued: true }, 201);
+    } catch {
+      return json({ document: doc, queued: false, error: 'queue_unavailable' }, 201);
+    }
   } catch {
     await env.DOCS_BUCKET.delete(objectKey).catch(() => {});
     return fail(503, 'metadata_unavailable');
@@ -395,7 +500,7 @@ async function readDocumentText(
 async function persistDocumentAnalysis(
   request: Request, env: Env, id: string, extractedText: string,
   fields: Record<string, any> | null, method: string, aiUsed: boolean,
-  visionMerchant: string | null = null
+  visionMerchant: string | null = null, jobToken: string | null = null
 ): Promise<Response> {
   const merchantHint = merchantCandidate(extractedText);
   const itemHint = categoryCandidate(extractedText);
@@ -439,9 +544,17 @@ async function persistDocumentAnalysis(
   const amount = hints.amountCents ?? modelAmount;
   const usefulFields = Number(Boolean(merchant)) + Number(Boolean(date)) + Number(amount !== null);
 
-  const result = await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', {
+  const payload = {
     extractedText, merchant, documentDate: date, amountCents: amount, category, subcategory
-  });
+  };
+  const result = jobToken
+    ? await fetch(apiUrl(env, '/api/internal/documents/' + id + '/analysis'), {
+        method: 'POST', headers: {
+          Accept: 'application/json', 'Content-Type': 'application/json',
+          'X-Arqvo-Job-Token': jobToken
+        }, body: JSON.stringify(payload), signal: AbortSignal.timeout(60000)
+      })
+    : await fromBackend(request, env, '/api/documents/' + id + '/analysis', 'PATCH', payload);
   if (!result.ok) return json(await jsonBody(result), result.status);
   const updated = await jsonBody(result);
   return json({
@@ -542,6 +655,32 @@ async function handleAnalyze(request: Request, env: Env, id: string): Promise<Re
 }
 
 
+async function processBackgroundJob(env: Env, job: BackgroundJob, attempts: number): Promise<void> {
+  if (!UUID.test(job.documentId) || !/^[a-f0-9]{64}$/i.test(job.token) ||
+      !job.objectKey.startsWith(encodeURIComponent(job.ownerId) + '/') ||
+      !MIME.has(job.mimeType)) throw new Error('invalid_job');
+  const state = await readJobState(env, job.ownerId, job.documentId);
+  if (state?.status === 'done') return;
+  await setJobState(env, job, 'processing', attempts);
+  const object = await env.DOCS_BUCKET.get(job.objectKey);
+  if (!object) throw new Error('file_not_found');
+  const extracted = await readDocumentText(env, job.filename, job.mimeType, await object.arrayBuffer());
+  if (extracted.text.trim().length < 12) throw new Error('ocr_unavailable');
+  let fields: Record<string, any> | null = null;
+  try { fields = await inferFields(env, extracted.text); }
+  catch { /* Deterministic extraction still preserves useful OCR fields. */ }
+  const fakeRequest = new Request('https://arqvo.invalid/api/queue');
+  const response = await persistDocumentAnalysis(fakeRequest, env, job.documentId,
+    extracted.text, fields, extracted.method, true, null, job.token);
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('document_deleted');
+    if (response.status === 403) throw new Error('job_not_authorized');
+    throw new Error('analysis_save_failed_' + response.status);
+  }
+  await setJobState(env, job, 'done', attempts);
+}
+
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = atPath(request);
@@ -552,6 +691,9 @@ export default {
       if (path.startsWith('/api/auth/') || path === '/api/me') {
         return proxy(request, env, path + url.search);
       }
+      if (path === '/api/document-jobs' && request.method === 'GET') {
+        return handleJobStatusList(request, env);
+      }
       if (path === '/api/documents') {
         if (request.method === 'POST') return handleUpload(request, env);
         if (request.method === 'GET') return proxy(request, env, path + url.search);
@@ -559,6 +701,8 @@ export default {
       }
       const file = docId(path, '/file');
       if (file && request.method === 'GET') return handleFile(request, env, file);
+      const retryJob = docId(path, '/queue');
+      if (retryJob && request.method === 'POST') return handleRetryJob(request, env, retryJob);
       const analyze = docId(path, '/analyze');
       if (analyze && request.method === 'POST') return handleAnalyze(request, env, analyze);
       const localScan = docId(path, '/scan');
@@ -572,6 +716,25 @@ export default {
       return fail(404, 'not_found');
     } catch {
       return fail(503, 'temporarily_unavailable');
+    }
+  },
+  async queue(batch: QueueBatch, env: Env): Promise<void> {
+    for (const msg of batch.messages) {
+      const job = msg.body;
+      try {
+        await processBackgroundJob(env, job, msg.attempts);
+        msg.ack();
+      } catch (err) {
+        const code = err instanceof Error ? err.message : 'processing_failed';
+        const permanent = ['invalid_job', 'file_not_found', 'document_deleted', 'job_not_authorized'].includes(code);
+        if (permanent || msg.attempts >= 4) {
+          await setJobState(env, job, 'failed', msg.attempts, code).catch(() => {});
+          msg.ack();
+        } else {
+          await setJobState(env, job, 'queued', msg.attempts, 'retrying').catch(() => {});
+          msg.retry({ delaySeconds: Math.min(300, Math.pow(2, msg.attempts) * 10) });
+        }
+      }
     }
   }
 };
