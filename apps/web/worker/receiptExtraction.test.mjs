@@ -142,3 +142,48 @@ test('OCR merchant labels do not appear in extracted establishment field', () =>
   const issuer = merchantCandidate('Nome: AUTO POSTO ROTA SUL LTDA\nCNPJ: 12.345.678/0001-90\nTOTAL R$ 30,00');
   assert.equal(issuer?.value, 'AUTO POSTO ROTA SUL LTDA');
 });
+
+
+test('water is food when listed on a gas station receipt', () => {
+  const sample = [
+    'Razão Social: POSTO NOVA PARADA LTDA ME',
+    'CNPJ: 12.345.678/0001-90',
+    'Descrição Qtde Un Valor',
+    '001 AGUA SEM GAS 500ML 1 UN 4,50',
+    'VALOR TOTAL R$ 4,50'
+  ].join('\n');
+  assert.equal(merchantCandidate(sample)?.value, 'POSTO NOVA PARADA LTDA ME');
+  assert.equal(categoryCandidate(sample)?.category, 'alimentacao');
+  assert.equal(categoryCandidate(sample)?.subcategory, 'Água mineral');
+});
+
+test('natural-language receipt with one water purchase is classified as food', () => {
+  const description = 'O cupom fiscal pertence ao POSTO NOVA PARADA LTDA ME. O consumidor comprou uma garrafa de água com gás. Valor total da compra R$ 5,00.';
+  assert.equal(categoryCandidate(description)?.category, 'alimentacao');
+});
+
+test('item introduction without price supports water', () => {
+  const description = ['Produtos comprados:', 'Água 500 ml', 'VALOR TOTAL R$ 4,00'].join('\n');
+  assert.equal(categoryCandidate(description)?.category, 'alimentacao');
+});
+
+test('photo description saying it recognized water is not confused with header', () => {
+  const description = 'A descrição reconhece água como item comprado, no valor de R$ 4,00.';
+  assert.equal(categoryCandidate(description)?.category, 'alimentacao');
+});
+
+test('water utility bills must not be mistaken for bottled water', () => {
+  const text = 'CONTA DE ÁGUA - TARIFA DE SANEAMENTO 56,90';
+  assert.notEqual(categoryCandidate(text)?.category, 'alimentacao');
+});
+
+test('station name containing combustivel without items is not fuel purchase', () => {
+  assert.equal(categoryCandidate('AUTO POSTO NOVA PARADA LTDA ME\nCNPJ: 12.345.678/0001-90\nVALOR TOTAL R$ 5,00'), null);
+});
+
+test('OCR slash Razão Social prefix removed but legal business name kept', () => {
+  const raw = '/Razão Social: POSTO NOVA PARADA LTDA ME';
+  assert.equal(cleanMerchantLabel(raw), 'POSTO NOVA PARADA LTDA ME');
+  assert.equal(merchantCandidate(raw + '\nCNPJ: 12.345.678/0001-90')?.value,
+    'POSTO NOVA PARADA LTDA ME');
+});
