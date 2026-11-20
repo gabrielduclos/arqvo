@@ -7,8 +7,10 @@ export type CategoryCandidate = { category: string; subcategory: string; evidenc
 
 /** Remove OCR field labels from an extracted establishment name. */
 export function cleanMerchantLabel(value: string): string {
+  // OCR/vision frequently emits "/Razão Social:" or "Nome:" before the
+  // business name; labels are metadata, not part of the legal name.
   return value.trim()
-    .replace(/^(?:(?:nome(?:\s+fantasia)?|raz[aã]o\s+social|estabelecimento)\s*[:：]\s*)+/i, '')
+    .replace(/^(?:(?:[\s/\\|–—-]*)(?:(?:nome(?:\s+(?:fantasia|do\s+estabelecimento))?|raz[aã]o\s+social|estabelecimento|emitente)\s*[:：]\s*))+?/i, '')
     .trim();
 }
 
@@ -202,7 +204,17 @@ function meaningfulItem(line: string): boolean {
 
 export function receiptItemLines(text: string): { lines: string[]; explicit: boolean } {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 450);
-  const start = lines.findIndex(line => itemHeader.test(line));
+  // "Descrição" on its own is not a table header: AI image narratives
+  // frequently say "A descrição reconhece água" or "Descrição: água".
+  // Header must be a column heading or an explicit introduction to items.
+  const start = lines.findIndex(line => {
+    const flat = normalized(line);
+    return /(?:lista de itens? (?:consumidos?|comprados?|adquiridos?)|itens? (?:consumidos?|comprados?|adquiridos?|da compra) (?:detalha|inclui)?|detalhamento (?:dos? )?(?:itens?|produtos?))/.test(flat) ||
+      (itemHeader.test(line) && (
+        /(?:^|\s)(?:qtd|qtde|quantidade|vl|valor|unit|unidade|codigo|cod|preco|total)(?:\s|$|\.)/.test(flat) ||
+        /^(?:descri[cç][aã]o|descricao|produto|item|c[oó]digo|codigo)\s*:?\s*$/.test(line)
+      ));
+  });
   if (start >= 0) {
     const result: string[] = [];
     for (const line of lines.slice(start + 1, start + 65)) {
@@ -228,6 +240,18 @@ export function receiptItemLines(text: string): { lines: string[]; explicit: boo
       }
     }
   }
+  // Descriptive OCR may list purchased items without a column heading or an
+  // individual price. Accept explicit purchase statements, not a business's
+  // specialty, an address, or a utility bill ("conta de água").
+  if (!candidates.length) {
+    const purchaseWords = /\b(?:comprou|comprados?|comprada|compradas|adquiriu|adquiridos?|consumiu|consumidos?|consumo\s+de|pedido\s+de|compra\s+de|itens?\s+(?:inclui|incluem|comprados?|consumidos?)|produtos?\s+(?:inclui|incluem)|foi\s+comprad[oa]|lan[cç]ado\s+como\s+item|item\s*[:\-])\b/i;
+    for (const line of lines) {
+      const flat = normalized(line);
+      if (!purchaseWords.test(flat) || !meaningfulItem(line) ||
+          /\b(?:conta|fatura|tarifa|cobranca|tratamento|saneamento|abastecimento de agua)\b/.test(flat)) continue;
+      candidates.push(line);
+    }
+  }
   return { lines: candidates.slice(0, 30), explicit: false };
 }
 
@@ -244,7 +268,7 @@ const categories: CategoryRule[] = [
   { code: 'servicos', sub: 'Serviços', rx: /\b(?:servi[cç]o\s+(?:de\s+)?(?:manuten[cç][aã]o|instala[cç][aã]o|limpeza|reparo)|conserto|lavagem\s+automotiva|corte\s+de\s+cabelo)\b/i },
   { code: 'compras', sub: 'Compras', rx: /\b(?:camisetas?|cal[cç]as?|t[eê]nis|sapatos?|roupas?|fones?\s+de\s+ouvido|celular|carregador|brinquedos?)\b/i },
   { code: 'mercado', sub: 'Mercado', rx: /\b(?:arroz|feij[aã]o|a[cç][uú]car|macarr[aã]o|farinha|detergente|sab[aã]o|alvejante|papel\s+higi[eê]nico|frutas?|verduras?|legumes?|carnes?|leite\s+em\s+p[oó])\b/i },
-  { code: 'alimentacao', sub: 'Alimentação', rx: /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino|p[aã]o\s+de\s+queijo|p[aã]o|lanche|sandu[ií]che|refei[cç][aã]o|almo[cç]o|jantar|pizza|salgados?|suco|[aá]gua\s+mineral|refrigerante|ch[aá]|biscoito|bolo|sorvete|hamb[uú]rguer)\b/i }
+  { code: 'alimentacao', sub: 'Alimentação', rx: /\b(?:caf[eé]|coffee|espresso|expresso|capuccino|cappuccino|p[aã]o\s+de\s+queijo|p[aã]o|lanche|sandu[ií]che|refei[cç][aã]o|almo[cç]o|jantar|pizza|salgados?|suco|[aá]gua(?:\s+(?:mineral|com\s+g[aá]s|sem\s+g[aá]s|pot[aá]vel))?|refrigerante|ch[aá]|biscoito|bolo|sorvete|hamb[uú]rguer)\b/i }
 ];
 
 export function categoryCandidate(text: string): CategoryCandidate | null {
@@ -254,6 +278,8 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   const evidence: string[] = [];
   for (const line of scope.lines) {
     const normalizedLine = normalized(line);
+    if (/\b(?:conta|fatura|tarifa|servico|saneamento)\s+(?:de\s+)?agua\b/.test(normalizedLine) &&
+        !/\b(?:garrafa|copo|ml|litro|com gas|sem gas|mineral)\b/.test(normalizedLine)) continue;
     for (const rule of categories) {
       // Normalize the pattern source only via accents in the original OCR line.
       // The regex includes accent variants to avoid rewriting potentially meaningful tokens.
@@ -273,7 +299,7 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   const rule = [...found.values()][0];
   const itemText = normalized(scope.lines.join(' '));
   const hasCoffee = /\b(?:cafe|coffee|espresso|expresso|capuccino|cappuccino)\b/i.test(itemText);
-  const hasWater = /\bagua\s+mineral\b/i.test(itemText);
+  const hasWater = /\bagua(?:\s+(?:mineral|com\s+gas|sem\s+gas|potavel))?\b/i.test(itemText);
   const subcategory = rule.code === 'alimentacao'
     ? hasCoffee && hasWater ? 'Café e água mineral' : hasCoffee ? 'Café' : hasWater ? 'Água mineral' : 'Alimentação'
     : rule.sub;
