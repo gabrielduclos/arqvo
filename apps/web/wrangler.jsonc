@@ -3,13 +3,42 @@
   "name": "arqvo",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-11-19",
-  "ai": { "binding": "AI" },
-  "vars": { "API_ORIGIN": "https://arqvo-api.onrender.com" },
-  "r2_buckets": [{ "binding": "DOCS_BUCKET", "bucket_name": "arqvo-documents" }],
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "API_ORIGIN": "https://arqvo-api.onrender.com"
+  },
+  "r2_buckets": [
+    {
+      "binding": "DOCS_BUCKET",
+      "bucket_name": "arqvo-documents"
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "DOCS_QUEUE",
+        "queue": "arqvo-document-processing"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "arqvo-document-processing",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "max_concurrency": 1,
+        "retry_delay": 15
+      }
+    ]
   }
 }
