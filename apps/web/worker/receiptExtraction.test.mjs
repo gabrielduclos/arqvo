@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName, modelMerchantName, categoryEvidenceMatches } from './receiptExtraction.ts';
+import { merchantCandidate, categoryCandidate, receiptItemLines, isPlainMerchantName, modelMerchantName, categoryEvidenceMatches, cleanMerchantLabel } from './receiptExtraction.ts';
 
 const sample = [
   'PET ada',
@@ -129,4 +129,16 @@ test('model item evidence must reference actual purchases', () => {
     'LANCHONETE E CHURRASCARIA TOLLUCA'), true);
   assert.equal(categoryEvidenceMatches('LANCHONETE E CHURRASCARIA TOLLUCA', narrative,
     'LANCHONETE E CHURRASCARIA TOLLUCA'), false);
+});
+
+
+test('remove printed Nome label without changing the establishment name', () => {
+  assert.equal(cleanMerchantLabel('Nome: AUTO POSTO ROTA SUL LTDA'), 'AUTO POSTO ROTA SUL LTDA');
+  assert.equal(cleanMerchantLabel('Nome： AUTO POSTO ROTA SUL LTDA'), 'AUTO POSTO ROTA SUL LTDA');
+  assert.equal(cleanMerchantLabel('AUTO POSTO ROTA SUL LTDA'), 'AUTO POSTO ROTA SUL LTDA');
+});
+
+test('OCR merchant labels do not appear in extracted establishment field', () => {
+  const issuer = merchantCandidate('Nome: AUTO POSTO ROTA SUL LTDA\nCNPJ: 12.345.678/0001-90\nTOTAL R$ 30,00');
+  assert.equal(issuer?.value, 'AUTO POSTO ROTA SUL LTDA');
 });
