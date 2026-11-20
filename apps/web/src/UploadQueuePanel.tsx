@@ -4,20 +4,20 @@ import type { DocumentQueue, QueueStatus } from './useDocumentUploadQueue';
 
 const copy = {
   pt: {
-    heading: 'Fila de processamento', done: 'Concluídos', allDone: 'Todos os arquivos foram processados',
+    heading: 'Seus envios', done: 'Concluídos', allDone: 'Todos os arquivos foram processados',
     clear: 'Limpar concluídos', cancel: 'Cancelar arquivo', retry: 'Tentar novamente',
     queued: 'Aguardando envio', uploading: 'Enviando arquivo',
-    analyzing: 'OCR e identificação no Cloudflare', complete: 'Salvo e analisado',
-    failed: 'Falha', canceled: 'Cancelado',
-    note: 'Depois que o arquivo for enviado, pode fechar o aplicativo: o Cloudflare continua o processamento.'
+    analyzing: 'Processando documento', complete: 'Concluído',
+    failed: 'Não foi possível concluir. Tente novamente.', canceled: 'Cancelado',
+    note: 'Após o envio, você pode fechar o aplicativo. O processamento continua normalmente.'
   },
   en: {
-    heading: 'Processing queue', done: 'Completed', allDone: 'All files have been processed',
+    heading: 'Your uploads', done: 'Completed', allDone: 'All files have been processed',
     clear: 'Clear completed', cancel: 'Cancel file', retry: 'Try again',
     queued: 'Waiting to upload', uploading: 'Uploading file',
-    analyzing: 'OCR and extraction on Cloudflare', complete: 'Saved and processed',
-    failed: 'Failed', canceled: 'Canceled',
-    note: 'Once the file is uploaded, you can close the app. Cloudflare keeps processing.'
+    analyzing: 'Processing document', complete: 'Completed',
+    failed: 'Could not finish. Please try again.', canceled: 'Canceled',
+    note: 'After upload, you can close the app. Processing will continue.'
   }
 };
 
@@ -61,7 +61,7 @@ export default function UploadQueuePanel({ queue, language }: { queue: DocumentQ
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-slate-800" title={item.file.name}>{item.file.name}</p>
               <p className={'mt-0.5 text-[11px] ' + (item.status === 'failed' ? 'text-red-600' : 'text-slate-500')}>
-                {item.error || status[item.status]}
+                {status[item.status]}
               </p>
             </div>
             {item.status === 'queued' && <button type="button" onClick={() => queue.cancel(item.id)}
