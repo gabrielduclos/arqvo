@@ -1,4 +1,4 @@
-import { merchantCandidate, categoryCandidate, receiptItemLines, evidencedInText, modelMerchantName, categoryEvidenceMatches } from './receiptExtraction';
+import { merchantCandidate, categoryCandidate, receiptItemLines, evidencedInText, modelMerchantName, categoryEvidenceMatches, cleanMerchantLabel } from './receiptExtraction';
 interface DocumentData {
   id: string; filename: string; mimeType: string; sizeBytes: number;
   objectKey: string; merchant: string | null; documentDate: string | null;
@@ -615,11 +615,11 @@ async function persistDocumentAnalysis(
   // The seller must be mentioned in the OCR output; any explanation from the
   // model is converted to a literal business name, never stored verbatim.
   // Evidence can differ slightly because photo OCR misses punctuation.
-  const merchant = visionMerchant || (
+  const merchant = cleanMerchantLabel(visionMerchant || (
     merchantHint && merchantHint.confidence >= 80
       ? merchantHint.value
       : modelMerchant
-  );
+  ));
   const modelCategory = typeof fields?.category === 'string' &&
     CATEGORY_CODES.has(fields.category.toLowerCase().trim()) ? fields.category.toLowerCase().trim() : null;
   const itemEvidence = typeof fields?.item_evidence === 'string' ? fields.item_evidence.trim() : '';
