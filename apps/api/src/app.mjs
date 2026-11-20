@@ -91,7 +91,7 @@ export function buildApp({
     }
   });
 
-  registerDocumentRoutes(app, { pool, auth, authBaseURL });
+  registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSigningSecret: authSecret });
 
   app.addHook('onClose', async () => {
     if (pool) await pool.end();
