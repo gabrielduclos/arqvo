@@ -29,7 +29,52 @@ export function isPlainMerchantName(candidate: string, ocrText: string): boolean
   if (!looksIssuer(name)) return false;
   // A real merchant must be written somewhere in the OCR input. This rejects
   // hallucinated brands and conversational AI response strings.
-  return normalized(ocrText).includes(flat);
+  return merchantWrittenInDocument(name, ocrText);
+}
+
+function merchantWrittenInDocument(candidate: string, text: string): boolean {
+  const name = normalized(candidate);
+  const header = normalized(text.split(/\r?\n/).slice(0, 60).join(' '));
+  if (!name || !header) return false;
+  if (header.includes(name)) return true;
+  const tokens = name.split(' ').filter(token =>
+    token.length >= 4 && !['ltda', 'eireli', 'limitada', 'restaurante', 'comercio', 'servicos'].includes(token));
+  if (!tokens.length) return false;
+  const present = tokens.filter(token => header.split(' ').some(word => fuzzyWord(token, word))).length;
+  // OCR commonly breaks or misspells one word in a long business name.
+  return present >= Math.max(2, Math.ceil(tokens.length * .75));
+}
+
+function fuzzyWord(left: string, right: string): boolean {
+  if (left === right) return true;
+  if (Math.abs(left.length - right.length) > 1 || left.length < 5 || right.length < 5) return false;
+  // One missing, doubled or substituted OCR character is common.
+  let i = 0, j = 0, edits = 0;
+  while (i < left.length && j < right.length) {
+    if (left[i] === right[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (left.length > right.length) i++;
+    else if (right.length > left.length) j++;
+    else { i++; j++; }
+  }
+  return edits + Number(i < left.length || j < right.length) <= 1;
+}
+
+/** Only return a seller's short name, not an AI explanation about its name. */
+export function modelMerchantName(candidate: unknown, text: string): string | null {
+  if (typeof candidate !== 'string') return null;
+  const raw = candidate.trim();
+  const options = [raw];
+  const quoted = [...raw.matchAll(/[\"“”'‘’]([^\"“”'‘’]{4,140})[\"“”'‘’]/g)];
+  for (const part of quoted) options.push(part[1]);
+  const explained = raw.match(/\b(?:como|chamado|chamada|se chama|denominado|denominada|estabelecimento\s*[:=])\s+[\"“”'‘’]?([^.!?;\n]{4,135})/i);
+  if (explained) options.push(explained[1]);
+  for (const option of options) {
+    const clean = option.trim().replace(/^[\"“”'‘’]+|[\"“”'‘’,.;:]+$/g, '');
+    if (clean.length > 125 || !looksIssuer(clean)) continue;
+    if (merchantWrittenInDocument(clean, text)) return clean;
+  }
+  return null;
 }
 
 
@@ -102,7 +147,13 @@ export function merchantCandidate(text: string): MerchantCandidate | null {
     }
   }
 
-  // Bare header is a weak hint, never authoritative when model evidence differs.
+  // A company name in the upper document header is strong even when the
+  // CNPJ line is unreadable. It must contain an actual corporate suffix.
+  for (const line of lines.slice(0, 12)) {
+    if (looksIssuer(line) && /\b(?:ltda|eireli|limitada|s\.?a\.?)\b/i.test(line)) {
+      return { value: issuerValue(line), source: 'header', confidence: 82 };
+    }
+  }
   for (const line of lines.slice(0, 9)) {
     if (looksIssuer(line)) return { value: issuerValue(line), source: 'header', confidence: 52 };
   }
@@ -135,9 +186,23 @@ export function receiptItemLines(text: string): { lines: string[]; explicit: boo
     }
     return { lines: result.slice(0, 40), explicit: true };
   }
-  // Without an item marker only use priced/product-shaped lines.
-  // Plain header lines, issuer names and "gas station" don't qualify.
-  const candidates = lines.filter(line => priceRow(line) && meaningfulItem(line));
+  // OCR frequently places the product name on one line and its quantity /
+  // price on the next. In that case the previous line is still an item.
+  const candidates: string[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (!priceRow(line)) continue;
+    if (meaningfulItem(line)) {
+      candidates.push(line);
+    } else if (index > 0 && meaningfulItem(lines[index - 1])) {
+      const previous = lines[index - 1];
+      // Never borrow the establishment header to classify a subtotal.
+      if (!/\b(?:ltda|eireli|cnpj|cpf|rodovia|avenida|restaurante|posto)\b/i.test(previous) &&
+          !/\b(?:total|pagamento|cart[aã]o|pix|troco)\b/i.test(line)) {
+        candidates.push(previous + ' ' + line);
+      }
+    }
+  }
   return { lines: candidates.slice(0, 30), explicit: false };
 }
 
@@ -190,10 +255,37 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
   };
 }
 
+
+/** Verify cloud-assigned categories against actual product evidence in OCR.
+ * Accepts OCR item tables, split item/price lines and short exact item quotes.
+ * Never uses the issuing business name as product evidence.
+ */
+export function categoryEvidenceMatches(evidence: string, text: string, merchant = ''): boolean {
+  const phrase = normalized(evidence);
+  if (phrase.length < 4 || phrase.length > 180 ||
+      /^(?:posto|restaurante|mercado|supermercado|farmacia|loja|empresa)(?:\s|$)/.test(phrase) &&
+       phrase.split(' ').length < 3) return false;
+  const merchantName = normalized(merchant);
+  if (merchantName && (phrase === merchantName || merchantName.includes(phrase))) return false;
+  const scope = receiptItemLines(text);
+  if (scope.lines.length && scope.lines.some(line => evidencedInText(evidence, line))) return true;
+  // If OCR collapsed the receipt into a paragraph, require the quote to
+  // appear literally in the source and ensure it is not an issuer title.
+  const full = normalized(text);
+  const index = full.indexOf(phrase);
+  if (index < 0) return false;
+  const preamble = normalized(text.split(/\r?\n/).slice(0, 5).join(' '));
+  return !preamble.includes(phrase) &&
+    /(?:\b(?:qtd|qtde|descri[cç][aã]o|itens?|produtos?)\b|(?:r\$\s*)?\d+[,.]\d{2})/i.test(text);
+}
+
 export function evidencedInText(candidate: string, text: string): boolean {
   const name = normalized(candidate);
   if (name.length < 4) return false;
   const tokens = name.split(' ').filter(token => token.length >= 3 && !['ltda', 'eireli', 'me', 'comercio', 'servicos'].includes(token));
   const full = normalized(text);
-  return (tokens.length > 0 && tokens.filter(token => full.includes(token)).length >= Math.max(1, Math.ceil(tokens.length * 0.7)));
+  const allWords = full.split(' ');
+  return (tokens.length > 0 &&
+    tokens.filter(token => allWords.some(word => fuzzyWord(token, word))).length >=
+      Math.max(1, Math.ceil(tokens.length * .7)));
 }
