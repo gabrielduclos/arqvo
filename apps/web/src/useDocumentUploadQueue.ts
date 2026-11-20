@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { FULL_CROP, readScan, scanPreview } from './documentScanner';
+import { FULL_CROP, readScan, scanPreview, type ScanOptions } from './documentScanner';
 
 export type LocalScan = { text: string; confidence: number };
 export type QueueStatus = 'queued' | 'scanning' | 'uploading' | 'analyzing' | 'done' | 'failed' | 'canceled';
@@ -9,6 +9,7 @@ export type QueueEntry = {
   status: QueueStatus;
   progress: number;
   scan?: LocalScan;
+  scanOptions?: ScanOptions;
   documentId?: string;
   error?: string;
   signature: string;
@@ -57,10 +58,14 @@ export function useDocumentUploadQueue(
           if (!scan && file.type.startsWith('image/')) {
             patch(id, { status: 'scanning', progress: 0 });
             try {
-              const preview = await scanPreview(file, { rotation: 0, enhance: true, crop: FULL_CROP });
-              const extracted = await readScan(file, {
-                rotation: 0, enhance: true, crop: preview.suggestedCrop ?? FULL_CROP
-              }, percentage => patch(id, { progress: percentage }));
+              // Manual crop choices are applied in the background queue, not in the modal.
+              // Batch photos still use automatic crop detection when there is no user selection.
+              const options = next.scanOptions ?? { rotation: 0, enhance: true, crop: FULL_CROP };
+              const effective = next.scanOptions ? options : {
+                ...options,
+                crop: (await scanPreview(file, options)).suggestedCrop ?? FULL_CROP
+              };
+              const extracted = await readScan(file, effective, percentage => patch(id, { progress: percentage }));
               scan = { text: extracted.text, confidence: extracted.confidence };
             } catch {
               // On-device OCR is optional: AI vision can still read an uploaded photo.
@@ -110,7 +115,7 @@ export function useDocumentUploadQueue(
     }
   }
 
-  function enqueue(files: File[], scan?: LocalScan) {
+  function enqueue(files: File[], scan?: LocalScan, scanOptions?: ScanOptions) {
     let invalid = 0, duplicates = 0, accepted = 0;
     const added: QueueEntry[] = [];
     const existing = new Set(live.current.filter(entry => entry.status !== 'canceled').map(entry => entry.signature));
@@ -122,7 +127,7 @@ export function useDocumentUploadQueue(
         invalid++; continue;
       }
       existing.add(identity);
-      added.push({ id: crypto.randomUUID(), file, signature: identity, scan, status: 'queued', progress: 0 });
+      added.push({ id: crypto.randomUUID(), file, signature: identity, scan, scanOptions, status: 'queued', progress: 0 });
       accepted++;
     }
     if (added.length) {
