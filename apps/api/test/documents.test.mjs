@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validFilename, validObjectKey, ALLOWED_MIME, MAX_FILE_BYTES } from '../src/documents.mjs';
+import { validFilename, validObjectKey, ALLOWED_MIME, MAX_FILE_BYTES, validateEditableAmount } from '../src/documents.mjs';
 
 test('object keys are always bound to their authenticated user', () => {
   const id = 'userA';
@@ -16,5 +16,15 @@ test('names and MIME are strictly validated', () => {
   assert.equal(validFilename('malware\\x.exe'), false);
   assert.equal(validFilename(''), false);
   assert.equal(ALLOWED_MIME.has('text/html'), false);
-  assert.equal(MAX_FILE_BYTES, 8388608);
+  assert.equal(MAX_FILE_BYTES, 20 * 1024 * 1024);
+});
+
+test('manual amount validation accepts integer centavos, zero, clearing and omitted legacy field', () => {
+  assert.deepEqual(validateEditableAmount({}), { present: false, valid: true, cents: null });
+  assert.deepEqual(validateEditableAmount({ amountCents: 16480 }), { present: true, valid: true, cents: 16480 });
+  assert.deepEqual(validateEditableAmount({ amountCents: 0 }), { present: true, valid: true, cents: 0 });
+  assert.deepEqual(validateEditableAmount({ amountCents: null }), { present: true, valid: true, cents: null });
+  for (const amountCents of [-1, 12.34, '16480', NaN, Infinity, 100000000001]) {
+    assert.equal(validateEditableAmount({ amountCents }).valid, false);
+  }
 });
