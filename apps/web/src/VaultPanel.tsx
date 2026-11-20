@@ -455,10 +455,10 @@ export default function VaultPanel({ language, email, initialView = 'all' }: { l
       <AnimatePresence>
         {scanFile && <DocumentScannerModal key="document-scanner" file={scanFile}
           language={language} onClose={() => setScanFile(null)}
-          onScanned={(text, confidence) => {
+          onConfirm={options => {
             const original = scanFile;
             setScanFile(null);
-            if (original) queue.enqueue([original], { text, confidence });
+            if (original) queue.enqueue([original], undefined, options);
           }}/>}
       </AnimatePresence>
       <AnimatePresence>
