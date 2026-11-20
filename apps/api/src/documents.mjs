@@ -1,4 +1,5 @@
 import { fromNodeHeaders } from 'better-auth/node';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_MIME = new Set([
@@ -29,7 +30,19 @@ export function validFilename(name) {
     && !/[\\/]/.test(name);
 }
 
-export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
+function signDocumentJob(secret, ownerId, documentId, objectKey) {
+  if (typeof secret !== 'string' || secret.length < 20) return null;
+  return createHmac('sha256', secret)
+    .update('arqvo:document-job:v1:' + ownerId + ':' + documentId + ':' + objectKey)
+    .digest('hex');
+}
+
+function validJobToken(expected, provided) {
+  if (!expected || typeof provided !== 'string' || !/^[a-f0-9]{64}$/i.test(provided)) return false;
+  return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(provided, 'hex'));
+}
+
+export function registerDocumentRoutes(app, { pool, auth, authBaseURL, jobSigningSecret }) {
   async function requireSession(request, reply) {
     reply.header('Cache-Control', 'no-store');
     if (!auth || !pool) { sendError(reply, 503, 'unavailable'); return null; }
@@ -207,18 +220,16 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
                    size_bytes AS "sizeBytes", status, created_at AS "createdAt"`,
         [userId, filename, mimeType, sizeBytes, objectKey]
       );
-      return reply.code(201).send({ document: result.rows[0] });
+      const document = result.rows[0];
+      const jobToken = signDocumentJob(jobSigningSecret, userId, document.id, objectKey);
+      return reply.code(201).send({ document, jobToken });
     } catch (err) {
       request.log.error({ err }, 'Document insert failed');
       return sendError(reply, 503, 'documents_unavailable');
     }
   });
 
-  app.patch('/api/documents/:id/analysis', async (request, reply) => {
-    const userId = await requireSession(request, reply);
-    if (!userId || !requireOrigin(request, reply)) return;
-    if (!UUID_RE.test(request.params.id)) return sendError(reply, 400, 'invalid_document_id');
-    const body = request.body || {};
+  async function saveAnalysis(userId, id, body) {
     const extractedText = typeof body.extractedText === 'string' ? body.extractedText.slice(0, 25000) : '';
     const merchant = typeof body.merchant === 'string' && body.merchant.trim().length <= 160 ? body.merchant.trim() : null;
     const documentDate = typeof body.documentDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.documentDate)
@@ -247,12 +258,47 @@ export function registerDocumentRoutes(app, { pool, auth, authBaseURL }) {
                    size_bytes AS "sizeBytes", status, merchant, category, subcategory,
                    document_date AS "documentDate", amount_cents AS "amountCents",
                    currency, created_at AS "createdAt"`,
-        [userId, request.params.id, extractedText, merchant || null, documentDate, amountCents, category, subcategory]
+        [userId, id, extractedText, merchant || null, documentDate, amountCents, category, subcategory]
       );
-      if (!result.rowCount) return sendError(reply, 404, 'document_not_found');
+      if (!result.rowCount) return { error: 'document_not_found', status: 404 };
       return { document: result.rows[0] };
     } catch (err) {
-      request.log.error({ err }, 'Document analysis update failed');
+      app.log.error({ err }, 'Document analysis update failed');
+      return { error: 'documents_unavailable', status: 503 };
+    }
+  }
+
+  app.patch('/api/documents/:id/analysis', async (request, reply) => {
+    const userId = await requireSession(request, reply);
+    if (!userId || !requireOrigin(request, reply)) return;
+    if (!UUID_RE.test(request.params.id)) return sendError(reply, 400, 'invalid_document_id');
+    const result = await saveAnalysis(userId, request.params.id, request.body || {});
+    if (result.error) return sendError(reply, result.status, result.error);
+    return result;
+  });
+
+  // The Cloudflare Queue consumer has no user session. It receives an HMAC
+  // capability bound to one owner, one immutable document ID and R2 object key.
+  // A leaked document ID or object key alone cannot authorize a write.
+  app.post('/api/internal/documents/:id/analysis', async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    const id = request.params.id;
+    if (!UUID_RE.test(id)) return sendError(reply, 400, 'invalid_document_id');
+    const provided = request.headers['x-arqvo-job-token'];
+    if (typeof provided !== 'string') return sendError(reply, 403, 'invalid_job_token');
+    try {
+      const found = await pool.query(
+        'SELECT owner_uid, object_key FROM public.documents WHERE id=$1', [id]
+      );
+      if (!found.rowCount) return sendError(reply, 404, 'document_not_found');
+      const { owner_uid: owner, object_key: key } = found.rows[0];
+      const expected = signDocumentJob(jobSigningSecret, owner, id, key);
+      if (!validJobToken(expected, provided)) return sendError(reply, 403, 'invalid_job_token');
+      const result = await saveAnalysis(owner, id, request.body || {});
+      if (result.error) return sendError(reply, result.status, result.error);
+      return result;
+    } catch (err) {
+      request.log.error({ err }, 'Background document analysis failed');
       return sendError(reply, 503, 'documents_unavailable');
     }
   });
