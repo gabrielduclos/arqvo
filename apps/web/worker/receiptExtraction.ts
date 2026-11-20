@@ -333,20 +333,35 @@ export function categoryCandidate(text: string): CategoryCandidate | null {
 export function categoryEvidenceMatches(evidence: string, text: string, merchant = ''): boolean {
   const phrase = normalized(evidence);
   if (phrase.length < 4 || phrase.length > 180 ||
-      /^(?:posto|restaurante|mercado|supermercado|farmacia|loja|empresa)(?:\s|$)/.test(phrase) &&
-       phrase.split(' ').length < 3) return false;
+      (/^(?:posto|restaurante|mercado|supermercado|farmacia|loja|empresa)(?:\s|$)/.test(phrase) &&
+       phrase.split(' ').length < 3)) return false;
   const merchantName = normalized(merchant);
   if (merchantName && (phrase === merchantName || merchantName.includes(phrase))) return false;
+
   const scope = receiptItemLines(text);
-  if (scope.lines.length && scope.lines.some(line => evidencedInText(evidence, line))) return true;
-  // If OCR collapsed the receipt into a paragraph, require the quote to
-  // appear literally in the source and ensure it is not an issuer title.
-  const full = normalized(text);
-  const index = full.indexOf(phrase);
-  if (index < 0) return false;
-  const preamble = normalized(text.split(/\r?\n/).slice(0, 5).join(' '));
-  return !preamble.includes(phrase) &&
-    /(?:\b(?:qtd|qtde|descri[cç][aã]o|itens?|produtos?)\b|(?:r\$\s*)?\d+[,.]\d{2})/i.test(text);
+  if (scope.lines.some(line => evidencedInText(evidence, line))) return true;
+  const lines = text.split(/\r?\n/).map(line => normalized(line)).filter(Boolean);
+  const purchaseContext = /\b(?:item|itens|produto|produtos|comprou|compra|comprado|comprada|adquiriu|adquirido|consumiu|consumido|consumo|pediu|pedido|descricao|quantidade|qtd|qtde|garrafa|unidade|preco|preco unitario|servico prestado)\b/;
+
+  // A visual model may produce ONE paragraph (or only a few lines) rather
+  // than an item table. Locate the evidence in its own sentence and require
+  // a purchase cue there. Do not exclude the first five lines indiscriminately:
+  // genuine OCR may put the product in the first or second line.
+  for (const line of lines) {
+    if (!line.includes(phrase)) continue;
+    if (merchantName && line === merchantName) continue;
+    const start = line.indexOf(phrase);
+    const context = line.slice(Math.max(0, start - 130), Math.min(line.length, start + phrase.length + 90));
+    if (purchaseContext.test(context) &&
+        !/\b(?:cnpj|cpf|chave de acesso|razao social|nome fantasia)\b/.test(context)) {
+      return true;
+    }
+    // A priced, product-shaped line is itself evidence, even without a label.
+    const original = text.split(/\r?\n/).find(raw => normalized(raw) === line);
+    if (original && priceRow(original) && meaningfulItem(original) &&
+        !/\b(?:total|subtotal|pagamento|tributos|troco)\b/i.test(original)) return true;
+  }
+  return false;
 }
 
 export function evidencedInText(candidate: string, text: string): boolean {
